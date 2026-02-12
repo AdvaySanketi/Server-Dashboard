@@ -655,6 +655,7 @@ user_accounts() {
 }
 
 pihole_stats() {
+  exec 2>/dev/null  # Suppress all stderr output
   # Check if Pi-hole is installed (native or Docker)
   local pihole_container=$(docker ps --filter "name=pihole" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
   
@@ -684,6 +685,14 @@ pihole_stats() {
     percent_blocked=$(echo "$percent_blocked" | tr -d '\n\r\t')
     domains_blocked=$(echo "$domains_blocked" | tr -d '\n\r\t')
     unique_clients=$(echo "$unique_clients" | tr -d '\n\r\t')
+    
+    # Set defaults if empty
+    status="${status:-enabled}"
+    queries_today="${queries_today:-0}"
+    blocked_today="${blocked_today:-0}"
+    percent_blocked="${percent_blocked:-0}"
+    domains_blocked="${domains_blocked:-0}"
+    unique_clients="${unique_clients:-0}"
     
     printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Queries Today","Value":"%s"},{"Metric":"Blocked Today","Value":"%s"},{"Metric":"Percent Blocked","Value":"%s%%"},{"Metric":"Blocklist Domains","Value":"%s"},{"Metric":"Unique Clients","Value":"%s"}]' \
       "$status" "$queries_today" "$blocked_today" "$percent_blocked" "$domains_blocked" "$unique_clients"
@@ -744,6 +753,7 @@ caddy_stats() {
 }
 
 lidarr_stats() {
+  exec 2>/dev/null  # Suppress all stderr output
   # Check if Lidarr is running (native or Docker)
   local lidarr_container=$(docker ps --filter "name=lidarr" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
   
@@ -763,7 +773,12 @@ lidarr_stats() {
   fi
   
   # Try to get Lidarr API stats (default port 8686)
-  local api_key=$(grep -r "ApiKey" ~/.config/Lidarr/config.xml /config/config.xml 2>/dev/null | sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' | head -1)
+  local api_key=""
+  if [ -f ~/.config/Lidarr/config.xml ]; then
+    api_key=$(grep "ApiKey" ~/.config/Lidarr/config.xml 2>/dev/null | sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' | head -1 | tr -d '\n\r\t')
+  elif [ -f /config/config.xml ]; then
+    api_key=$(grep "ApiKey" /config/config.xml 2>/dev/null | sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' | head -1 | tr -d '\n\r\t')
+  fi
   
   # Clean variables
   status=$(echo "$status" | tr -d '\n\r\t')
@@ -783,6 +798,7 @@ lidarr_stats() {
 }
 
 navidrome_stats() {
+  exec 2>/dev/null  # Suppress all stderr output
   # Check if Navidrome is running (native or Docker)
   local navidrome_container=$(docker ps --filter "name=navidrome" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
   
@@ -790,7 +806,7 @@ navidrome_stats() {
     local uptime=$(docker inspect -f '{{.State.StartedAt}}' "$navidrome_container" 2>/dev/null | xargs -I {} date -d {} +%s | xargs -I {} echo $(( $(date +%s) - {} )) | awk '{printf "%dd %dh", $1/86400, ($1%86400)/3600}')
     local memory=$(docker stats --no-stream --format "{{.MemUsage}}" "$navidrome_container" 2>/dev/null | cut -d'/' -f1)
     local status="Running (Docker)"
-    local db_file=$(docker exec "$navidrome_container" find /data -name "navidrome.db" 2>/dev/null | head -1)
+    local db_file=$(docker exec "$navidrome_container" find /data -name "navidrome.db" 2>/dev/null | head -1 | tr -d '\n\r\t')
   else
     local navidrome_pid=$(pgrep -f navidrome | head -1)
     if [ -z "$navidrome_pid" ]; then
@@ -800,7 +816,7 @@ navidrome_stats() {
     local uptime=$(ps -p $navidrome_pid -o etime= 2>/dev/null | tr -d ' ')
     local memory=$(ps -p $navidrome_pid -o rss= 2>/dev/null | awk '{printf "%.1f MB", $1/1024}')
     local status="Running"
-    local db_file=$(find /var/lib/navidrome ~/.local/share/navidrome -name "navidrome.db" 2>/dev/null | head -1)
+    local db_file=$(find /var/lib/navidrome ~/.local/share/navidrome -name "navidrome.db" 2>/dev/null | head -1 | tr -d '\n\r\t')
   fi
   
   # Clean variables
@@ -859,6 +875,7 @@ beets_stats() {
 }
 
 qbittorrent_stats() {
+  exec 2>/dev/null  # Suppress all stderr output
   # Check if qBittorrent is running (native or Docker)
   local qbt_container=$(docker ps --filter "name=qbittorrent" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
   
