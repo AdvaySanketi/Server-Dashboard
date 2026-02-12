@@ -37,12 +37,12 @@ function getPluginData(pluginName, callback) {
   var output = []
 
   // Candidates to try for running the POSIX shell script. On Linux/macOS
-  // we prefer `/bin/sh`. On Windows try `bash` (Git Bash / WSL) then `sh`.
+  // we prefer `bash`. On Windows try `bash` (Git Bash / WSL) then `sh`.
   var shellCandidates = []
   if (process.platform === 'win32') {
     shellCandidates = ['bash', 'sh']
   } else {
-    shellCandidates = ['sh']
+    shellCandidates = ['bash', 'sh']
   }
 
   // Also allow invoking the script directly (may work if executable/shebang present)
