@@ -2,7 +2,6 @@ var g             = require('gulp')
 var concat        = require('gulp-concat')
 var uglify        = require('gulp-uglify')
 var cssmin        = require('gulp-cssmin')
-var gutil         = require('gulp-util')
 var ngAnnotate    = require('gulp-ng-annotate')
 var templateCache = require('gulp-angular-templatecache')
 
@@ -16,7 +15,7 @@ g.task('template-cache', function () {
     .pipe(g.dest('temp/'))
 })
 
-g.task('generate-js-dist', ['template-cache'], function () {
+g.task('generate-js-dist', function () {
   return g.src([
     'node_modules/angular/angular.min.js',
     'node_modules/angular-route/angular-route.min.js',
@@ -28,7 +27,6 @@ g.task('generate-js-dist', ['template-cache'], function () {
   .pipe(concat('archiveDashboard.min.js'))
   .pipe(ngAnnotate())
   // .pipe(uglify())
-  .on('error', gutil.log)
   .pipe(g.dest('app/'))
 })
 
@@ -39,14 +37,11 @@ g.task('generate-css-dist', function () {
     .pipe(g.dest('app/'))
 })
 
-g.task('build', [
-  'generate-js-dist',
-  'generate-css-dist'
-])
+g.task('build', g.series('template-cache', g.parallel('generate-js-dist', 'generate-css-dist')))
 
 g.task('watch', function () {
-  g.watch('src/**/*.css', ['generate-css-dist'])
-  g.watch(['src/**/*.js', 'src/**/*.html'], ['generate-js-dist'])
+  g.watch('src/**/*.css', g.series('generate-css-dist'))
+  g.watch(['src/**/*.js', 'src/**/*.html'], g.series('template-cache', 'generate-js-dist'))
 })
 
-g.task('default', ['build', 'watch'])
+g.task('default', g.series('build', 'watch'))
