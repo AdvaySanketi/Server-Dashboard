@@ -650,6 +650,100 @@ user_accounts() {
   $ECHO [ ${result%?} ] | _parseAndPrint
 }
 
+pihole_stats() {
+  # Check if Pi-hole is installed
+  if [ ! -f "/usr/local/bin/pihole" ] && [ ! -f "/usr/bin/pihole" ]; then
+    $ECHO '[{"status": "Not Installed"}]'
+    return
+  fi
+  
+  # Get Pi-hole status using API or command
+  local status=$(pihole status 2>/dev/null | grep -o "enabled\|disabled" || echo "unknown")
+  local queries=$(pihole -c -j 2>/dev/null | grep -o '"dns_queries_today":[0-9]*' | cut -d':' -f2 || echo "0")
+  local blocked=$(pihole -c -j 2>/dev/null | grep -o '"ads_blocked_today":[0-9]*' | cut -d':' -f2 || echo "0")
+  
+  $ECHO "[{\"Status\": \"$status\", \"Queries Today\": \"$queries\", \"Blocked Today\": \"$blocked\"}]" | _parseAndPrint
+}
+
+tailscale_stats() {
+  # Check if Tailscale is installed
+  if ! command -v tailscale >/dev/null 2>&1; then
+    $ECHO '[{"status": "Not Installed"}]'
+    return
+  fi
+  
+  local status=$(tailscale status --json 2>/dev/null | grep -o '"BackendState":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+  local ip=$(tailscale ip -4 2>/dev/null || echo "N/A")
+  local peers=$(tailscale status 2>/dev/null | grep -v "^#" | wc -l || echo "0")
+  
+  $ECHO "[{\"Status\": \"$status\", \"IP Address\": \"$ip\", \"Connected Peers\": \"$peers\"}]" | _parseAndPrint
+}
+
+caddy_stats() {
+  # Check if Caddy is running
+  if ! pgrep -x caddy >/dev/null 2>&1; then
+    $ECHO '[{"status": "Not Running"}]'
+    return
+  fi
+  
+  local uptime=$(ps -p $(pgrep -x caddy) -o etime= 2>/dev/null | tr -d ' ' || echo "N/A")
+  local memory=$(ps -p $(pgrep -x caddy) -o rss= 2>/dev/null | awk '{printf "%.1f MB", $1/1024}' || echo "N/A")
+  
+  $ECHO "[{\"Status\": \"Running\", \"Uptime\": \"$uptime\", \"Memory Usage\": \"$memory\"}]" | _parseAndPrint
+}
+
+lidarr_stats() {
+  # Check if Lidarr is running
+  if ! pgrep -f Lidarr >/dev/null 2>&1; then
+    $ECHO '[{"status": "Not Running"}]'
+    return
+  fi
+  
+  local uptime=$(ps -p $(pgrep -f Lidarr | head -1) -o etime= 2>/dev/null | tr -d ' ' || echo "N/A")
+  local memory=$(ps -p $(pgrep -f Lidarr | head -1) -o rss= 2>/dev/null | awk '{printf "%.1f MB", $1/1024}' || echo "N/A")
+  
+  $ECHO "[{\"Status\": \"Running\", \"Uptime\": \"$uptime\", \"Memory Usage\": \"$memory\"}]" | _parseAndPrint
+}
+
+navidrome_stats() {
+  # Check if Navidrome is running
+  if ! pgrep -f navidrome >/dev/null 2>&1; then
+    $ECHO '[{"status": "Not Running"}]'
+    return
+  fi
+  
+  local uptime=$(ps -p $(pgrep -f navidrome | head -1) -o etime= 2>/dev/null | tr -d ' ' || echo "N/A")
+  local memory=$(ps -p $(pgrep -f navidrome | head -1) -o rss= 2>/dev/null | awk '{printf "%.1f MB", $1/1024}' || echo "N/A")
+  
+  $ECHO "[{\"Status\": \"Running\", \"Uptime\": \"$uptime\", \"Memory Usage\": \"$memory\"}]" | _parseAndPrint
+}
+
+beets_stats() {
+  # Check if Beets is installed
+  if ! command -v beet >/dev/null 2>&1; then
+    $ECHO '[{"status": "Not Installed"}]'
+    return
+  fi
+  
+  local library=$(beet stats 2>/dev/null | grep "Total" | awk '{print $3 " " $4}' || echo "N/A")
+  local tracks=$(beet stats 2>/dev/null | grep "Total tracks" | awk '{print $3}' || echo "N/A")
+  
+  $ECHO "[{\"Status\": \"Installed\", \"Library Size\": \"$library\", \"Total Tracks\": \"$tracks\"}]" | _parseAndPrint
+}
+
+qbittorrent_stats() {
+  # Check if qBittorrent is running
+  if ! pgrep -f qbittorrent >/dev/null 2>&1; then
+    $ECHO '[{"status": "Not Running"}]'
+    return
+  fi
+  
+  local uptime=$(ps -p $(pgrep -f qbittorrent | head -1) -o etime= 2>/dev/null | tr -d ' ' || echo "N/A")
+  local memory=$(ps -p $(pgrep -f qbittorrent | head -1) -o rss= 2>/dev/null | awk '{printf "%.1f MB", $1/1024}' || echo "N/A")
+  
+  $ECHO "[{\"Status\": \"Running\", \"Uptime\": \"$uptime\", \"Memory Usage\": \"$memory\"}]" | _parseAndPrint
+}
+
 fnCalled="$1"
 
 # Check if the function call is indeed a function.

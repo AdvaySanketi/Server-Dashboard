@@ -1321,6 +1321,18 @@ function routesFn($routeProvider) {
         '<recent-logins sortablejs-id="recent"></recent-logins> ',
       ].join(''),
     })
+
+    .when('/services', {
+      template: [
+        '<pihole-stats sortablejs-id="pihole"></pihole-stats> ',
+        '<tailscale-stats sortablejs-id="tailscale"></tailscale-stats> ',
+        '<caddy-stats sortablejs-id="caddy"></caddy-stats> ',
+        '<lidarr-stats sortablejs-id="lidarr"></lidarr-stats> ',
+        '<navidrome-stats sortablejs-id="navidrome"></navidrome-stats> ',
+        '<beets-stats sortablejs-id="beets"></beets-stats> ',
+        '<qbittorrent-stats sortablejs-id="qbittorrent"></qbittorrent-stats> ',
+      ].join(''),
+    })
     .otherwise({
       redirectTo: '/loading'
     })
@@ -1696,6 +1708,34 @@ var simpleTableModules = [
   {
     name: 'arpCacheTable',
     template: '<table-data heading="ARP Cache Table" module-name="arp_cache"></table-data>'
+  },
+  {
+    name: 'piholeStats',
+    template: '<table-data heading="Pi-hole Stats" module-name="pihole_stats" info="Pi-hole DNS statistics and blocking info."></table-data>'
+  },
+  {
+    name: 'tailscaleStats',
+    template: '<table-data heading="Tailscale Stats" module-name="tailscale_stats" info="Tailscale VPN network status."></table-data>'
+  },
+  {
+    name: 'caddyStats',
+    template: '<table-data heading="Caddy Stats" module-name="caddy_stats" info="Caddy web server metrics."></table-data>'
+  },
+  {
+    name: 'lidarrStats',
+    template: '<table-data heading="Lidarr Stats" module-name="lidarr_stats" info="Lidarr music management statistics."></table-data>'
+  },
+  {
+    name: 'navidromeStats',
+    template: '<table-data heading="Navidrome Stats" module-name="navidrome_stats" info="Navidrome music server statistics."></table-data>'
+  },
+  {
+    name: 'beetsStats',
+    template: '<table-data heading="Beets Stats" module-name="beets_stats" info="Beets music library statistics."></table-data>'
+  },
+  {
+    name: 'qbittorrentStats',
+    template: '<table-data heading="qBittorrent Stats" module-name="qbittorrent_stats" info="qBittorrent torrent client statistics."></table-data>'
   },
   {
     name: 'commonApplications',
@@ -2308,7 +2348,8 @@ angular.module('archiveDashboard').directive('navBar', ['$location', function($l
         'system-status',
         'basic-info',
         'network',
-        'accounts'
+        'accounts',
+        'services'
       ]
 
       scope.getNavItemName = function(url) {
