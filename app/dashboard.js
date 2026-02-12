@@ -1667,15 +1667,15 @@ var simpleTableModules = [
   },
   {
     name: 'ramIntensiveProcesses',
-    template: '<table-data heading="RAM Processes" module-name="ram_intensive_processes" info="Processes which are using most RAM."></table-data>'
+    template: '<table-data heading="RAM Processes" module-name="ram_intensive_processes" info="Processes which are using most RAM." initial-enlarged="true"></table-data>'
   },
   {
     name: 'cpuIntensiveProcesses',
-    template: '<table-data heading="CPU Processes" module-name="cpu_intensive_processes" info="Processes which are using most CPU."></table-data>'
+    template: '<table-data heading="CPU Processes" module-name="cpu_intensive_processes" info="Processes which are using most CPU." initial-enlarged="true"></table-data>'
   },
   {
     name: 'dockerProcesses',
-    template: '<table-data heading="Docker Processes" module-name="docker_processes" info="Processes in Docker Containers sorted by CPU."></table-data>'
+    template: '<table-data heading="Docker Processes" module-name="docker_processes" info="Processes in Docker Containers sorted by CPU." initial-enlarged="true"></table-data>'
   },
   {
     name: 'networkConnections',
@@ -2330,6 +2330,9 @@ angular.module('archiveDashboard').directive('plugin', ['$rootScope', function($
 
       if (attr.hasOwnProperty('chartPlugin'))
         s.isChartPlugin = true
+
+      if (attr.hasOwnProperty('initialEnlarged') && attr.initialEnlarged === 'true')
+        s.enlarged = true
 
       if ($rootScope.hiddenPlugins.indexOf(s.moduleName) > -1)
         s.isHidden = true

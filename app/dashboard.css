@@ -213,25 +213,9 @@ nav-bar .right-content a:hover{color: var(--accent-secondary)}
 }
 
 /* Table Data Plugin */
-.table-data-plugin .filter-container{padding-bottom:0;margin:0}
+.table-data-plugin .filter-container{display: none;}
 .table-data-plugin .filter,.table-data-plugin .filter:active,.table-data-plugin .filter:focus{
-  height:20px;
-  padding:10px 12px;
-  border:1px solid var(--border-color);
-  outline-color:transparent;
-  background: rgba(22, 27, 34, 0.6);
-  width:100%;
-  margin:0;
-  text-align:center;
-  font-size:14px;
-  color: var(--text-primary);
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-.table-data-plugin .filter:focus{
-  border:1px solid var(--accent-primary);
-  background: rgba(13, 17, 23, 0.8);
-  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+  display: none;
 }
 .table-data-plugin thead tr th a,.table-data-plugin thead tr th a:visited{
   color: var(--text-secondary);
