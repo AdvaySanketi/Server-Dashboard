@@ -675,25 +675,20 @@ pihole_stats() {
   # Pi-hole authentication uses double SHA256
   local api_token=$(echo -n "$pihole_password" | sha256sum | awk '{print $1}' | xargs -I {} echo -n {} | sha256sum | awk '{print $1}')
   
-  # Build API URL with auth
-  local api_url="http://localhost/admin/api.php?summary&auth=$api_token"
+  local api_data=""
   
   # Try to access Pi-hole API
   if [ -n "$pihole_container" ]; then
-    # Pi-hole running in Docker - access from host on the exposed port
-    local api_data=$(curl -s "$api_url" 2>/dev/null)
-    # If that fails, try common Pi-hole ports
+    # Pi-hole running in Docker on port 8888
+    api_data=$(curl -s "http://localhost:8888/admin/api.php?summary&auth=$api_token" 2>/dev/null)
+    
+    # If that fails, try accessing directly in container
     if [ -z "$api_data" ] || echo "$api_data" | grep -q "error"; then
-      api_url="http://localhost:8080/admin/api.php?summary&auth=$api_token"
-      api_data=$(curl -s "$api_url" 2>/dev/null)
-    fi
-    if [ -z "$api_data" ] || echo "$api_data" | grep -q "error"; then
-      api_url="http://localhost:8089/admin/api.php?summary&auth=$api_token"
-      api_data=$(curl -s "$api_url" 2>/dev/null)
+      api_data=$(docker exec "$pihole_container" curl -s "http://localhost/admin/api.php?summary&auth=$api_token" 2>/dev/null)
     fi
   elif [ -f "/usr/local/bin/pihole" ] || [ -f "/usr/bin/pihole" ]; then
     # Native Pi-hole installation
-    local api_data=$(curl -s "$api_url" 2>/dev/null)
+    api_data=$(curl -s "http://localhost/admin/api.php?summary&auth=$api_token" 2>/dev/null)
   else
     echo '[{"Metric":"Status","Value":"Not Installed"}]'
     return
