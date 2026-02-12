@@ -27,11 +27,11 @@ function routesFn($routeProvider) {
         '<cpu-avg-load-chart sortablejs-id="cpu-avg-load-chart"></cpu-avg-load-chart> ',
         '<cpu-utilization-chart sortablejs-id="cpu-util-chart"></cpu-utilization-chart> ',
         '<cpu-temp sortablejs-id="cpu-temp"></cpu-temp> ',
-        '<ram-intensive-processes sortablejs-id="ram-intensive-processes"></ram-intensive-processes> ',
-        '<cpu-intensive-processes sortablejs-id="cpu-intensive-processes"></cpu-intensive-processes> ',
+        '<ram-intensive-processes enlarged sortablejs-id="ram-intensive-processes"></ram-intensive-processes> ',
+        '<cpu-intensive-processes enlarged sortablejs-id="cpu-intensive-processes"></cpu-intensive-processes> ',
         '<disk-space sortablejs-id="disk-space"></disk-space> ',
         '<swap-usage sortablejs-id="swap-usage"></swap-usage> ',
-        '<docker-processes sortablejs-id="docker"></docker-processes> ',
+        '<docker-processes enlarged sortablejs-id="docker"></docker-processes> ',
       ].join(''),
     })
 
@@ -52,7 +52,6 @@ function routesFn($routeProvider) {
         '<download-transfer-rate-chart sortablejs-id="download"></download-transfer-rate-chart> ',
         '<ip-addresses sortablejs-id="ip-addresses"></ip-addresses> ',
         '<network-connections sortablejs-id="net-cons"></network-connections> ',
-        '<arp-cache-table sortablejs-id="arp"></arp-cache-table> ',
         '<ping-speeds sortablejs-id="ping"></ping-speeds> ',
         '<bandwidth sortablejs-id="bandwidth"></bandwidth> ',
       ].join(''),
@@ -72,6 +71,18 @@ function routesFn($routeProvider) {
         '<memcached sortablejs-id="memcached"></memcached>',
         '<redis sortablejs-id="redis"></redis>',
         '<pm2 sortablejs-id="pm2"></pm2>',
+      ].join(''),
+    })
+    
+    .when('/services', {
+      template: [
+        '<pihole-stats sortablejs-id="pihole"></pihole-stats> ',
+        '<tailscale-stats sortablejs-id="tailscale"></tailscale-stats> ',
+        '<caddy-stats sortablejs-id="caddy"></caddy-stats> ',
+        '<lidarr-stats sortablejs-id="lidarr"></lidarr-stats> ',
+        '<navidrome-stats sortablejs-id="navidrome"></navidrome-stats> ',
+        '<beets-stats sortablejs-id="beets"></beets-stats> ',
+        '<qbittorrent-stats sortablejs-id="qbittorrent"></qbittorrent-stats> ',
       ].join(''),
     })
     .otherwise({

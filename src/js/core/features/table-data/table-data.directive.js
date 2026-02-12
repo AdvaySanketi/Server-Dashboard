@@ -6,10 +6,11 @@ angular.module('archiveDashboard').directive('tableData', ['server', '$rootScope
       moduleName: '@',
       width: '@',
       height: '@',
-      linkUrl: '@'
+      linkUrl: '@',
+      enlarged: '@'
     },
     templateUrl: 'src/js/core/features/table-data/table-data.html',
-    link: function(scope, element) {
+    link: function(scope, element, attrs) {
 
       scope.sortByColumn = null
       scope.sortReverse = null

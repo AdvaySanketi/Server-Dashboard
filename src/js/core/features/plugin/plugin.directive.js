@@ -7,6 +7,9 @@ angular.module('archiveDashboard').directive('plugin', ['$rootScope', function($
       if (attr.hasOwnProperty('chartPlugin'))
         s.isChartPlugin = true
 
+      if (attr.hasOwnProperty('enlarged'))
+        s.enlarged = true
+
       if ($rootScope.hiddenPlugins.indexOf(s.moduleName) > -1)
         s.isHidden = true
 

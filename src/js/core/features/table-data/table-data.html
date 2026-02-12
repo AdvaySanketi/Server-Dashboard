@@ -2,7 +2,10 @@
   heading="{{ heading }}"
   last-updated="lastGet"
   on-refresh="getData()"
-  info="{{ info }}">
+  info="{{ info }}"
+  link-url="linkUrl"
+  ng-attr-enlarged="{{ enlarged === 'true' ? 'true' : null }}"
+>
 
   <loader ng-if="!tableRows"></loader>
 
