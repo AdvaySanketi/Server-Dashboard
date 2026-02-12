@@ -2348,8 +2348,8 @@ angular.module('archiveDashboard').directive('navBar', ['$location', function($l
         'system-status',
         'basic-info',
         'network',
+        'services',
         'accounts',
-        'services'
       ]
 
       scope.getNavItemName = function(url) {
