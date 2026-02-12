@@ -1309,7 +1309,6 @@ function routesFn($routeProvider) {
         '<download-transfer-rate-chart sortablejs-id="download"></download-transfer-rate-chart> ',
         '<ip-addresses sortablejs-id="ip-addresses"></ip-addresses> ',
         '<network-connections sortablejs-id="net-cons"></network-connections> ',
-        '<arp-cache-table sortablejs-id="arp"></arp-cache-table> ',
         '<ping-speeds sortablejs-id="ping"></ping-speeds> ',
         '<bandwidth sortablejs-id="bandwidth"></bandwidth> ',
       ].join(''),
@@ -1320,15 +1319,6 @@ function routesFn($routeProvider) {
         '<server-accounts sortablejs-id="server-accounts"></server-accounts> ',
         '<logged-in-accounts sortablejs-id="logged-in"></logged-in-accounts> ',
         '<recent-logins sortablejs-id="recent"></recent-logins> ',
-      ].join(''),
-    })
-
-    .when('/apps', {
-      template: [
-        '<common-applications sortablejs-id="common-applications"></common-applications>',
-        '<memcached sortablejs-id="memcached"></memcached>',
-        '<redis sortablejs-id="redis"></redis>',
-        '<pm2 sortablejs-id="pm2"></pm2>',
       ].join(''),
     })
     .otherwise({
@@ -2318,8 +2308,7 @@ angular.module('archiveDashboard').directive('navBar', ['$location', function($l
         'system-status',
         'basic-info',
         'network',
-        'accounts',
-        'apps'
+        'accounts'
       ]
 
       scope.getNavItemName = function(url) {

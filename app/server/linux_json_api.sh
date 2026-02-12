@@ -97,8 +97,12 @@ cpu_temp() {
         #amd
         if [[ "${returnString/"k10"}" != "${returnString}" ]] ; then
           $ECHO ${returnString##*k10} | $CUT -d ' ' -f 6 | $CUT -c 2- | $CUT -c 1-4
-        #intel
-        elif [[ "${returnString/"core"}" != "${returnString}" ]] ; then
+        #intel - Package id
+        elif [[ "${returnString/"Package id"}" != "${returnString}" ]] ; then
+          temp=$($ECHO "$returnString" | $GREP "Package id" | $AWK '{print $4}' | $CUT -c 2-)
+          $ECHO ${temp%.*} | _parseAndPrint
+        #intel - Physical  
+        elif [[ "${returnString/"Physical"}" != "${returnString}" ]] ; then
           fromcore=${returnString##*"coretemp"}
           $ECHO ${fromcore##*Physical}  | $CUT -d ' ' -f 3 | $CUT -c 2-5 | _parseAndPrint
         fi
