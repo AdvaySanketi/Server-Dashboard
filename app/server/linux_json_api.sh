@@ -10,6 +10,10 @@ HEAD=$(type -P head)
 CUT=$(type -P cut)
 PS=$(type -P ps)
 
+_jsonEscape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\n/\\n/g; s/\r/\\r/g; s/\t/\\t/g' | tr -d '\n\r'
+}
+
 _parseAndPrint() {
   while read data; do
     $ECHO -n "$data" | $SED -r 's/\\//g' | $TR -d "\n";
@@ -661,7 +665,7 @@ pihole_stats() {
     # Native Pi-hole installation
     local api_data=$(curl -s http://localhost/admin/api.php?summary 2>/dev/null)
   else
-    $ECHO '[{"Metric":"Status","Value":"Not Installed"}]'
+    echo '[{"Metric":"Status","Value":"Not Installed"}]'
     return
   fi
   
@@ -673,16 +677,18 @@ pihole_stats() {
     local status=$(echo "$api_data" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
     local unique_clients=$(echo "$api_data" | grep -o '"unique_clients":[0-9]*' | cut -d':' -f2)
     
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Queries Today","Value":"'"$queries_today"'"},{"Metric":"Blocked Today","Value":"'"$blocked_today"'"},{"Metric":"Percent Blocked","Value":"'"${percent_blocked}%"'"},{"Metric":"Blocklist Domains","Value":"'"$domains_blocked"'"},{"Metric":"Unique Clients","Value":"'"$unique_clients"'"}]'
+    # Use printf to build JSON with proper escaping
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Queries Today","Value":"%s"},{"Metric":"Blocked Today","Value":"%s"},{"Metric":"Percent Blocked","Value":"%s%%"},{"Metric":"Blocklist Domains","Value":"%s"},{"Metric":"Unique Clients","Value":"%s"}]\n' \
+      "$status" "$queries_today" "$blocked_today" "$percent_blocked" "$domains_blocked" "$unique_clients"
   else
-    $ECHO '[{"Metric":"Status","Value":"Running (API unavailable)"}]'
+    echo '[{"Metric":"Status","Value":"Running (API unavailable)"}]'
   fi
 }
 
 tailscale_stats() {
   # Check if Tailscale is installed
   if ! command -v tailscale >/dev/null 2>&1; then
-    $ECHO '[{"Metric":"Status","Value":"Not Installed"}]'
+    echo '[{"Metric":"Status","Value":"Not Installed"}]'
     return
   fi
   
@@ -694,7 +700,8 @@ tailscale_stats() {
   # Get hostname from status
   local hostname=$(tailscale status --self=true 2>/dev/null | awk '{print $2}' || echo "N/A")
   
-  $ECHO '[{"Metric":"Status","Value":"'"$backend_state"'"},{"Metric":"Hostname","Value":"'"$hostname"'"},{"Metric":"IPv4 Address","Value":"'"$ipv4"'"},{"Metric":"IPv6 Address","Value":"'"$ipv6"'"},{"Metric":"Connected Peers","Value":"'"$peer_count"'"}]'
+  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Hostname","Value":"%s"},{"Metric":"IPv4 Address","Value":"%s"},{"Metric":"IPv6 Address","Value":"%s"},{"Metric":"Connected Peers","Value":"%s"}]\n' \
+    "$backend_state" "$hostname" "$ipv4" "$ipv6" "$peer_count"
 }
 
 caddy_stats() {
@@ -709,7 +716,7 @@ caddy_stats() {
   else
     local caddy_pid=$(pgrep -x caddy 2>/dev/null)
     if [ -z "$caddy_pid" ]; then
-      $ECHO '[{"Metric":"Status","Value":"Not Running"}]'
+      echo '[{"Metric":"Status","Value":"Not Running"}]'
       return
     fi
     local uptime=$(ps -p $caddy_pid -o etime= 2>/dev/null | tr -d ' ')
@@ -720,7 +727,8 @@ caddy_stats() {
   local cpu=$(ps -p $caddy_pid -o %cpu= 2>/dev/null | tr -d ' ' || echo "N/A")
   local connections=$(netstat -tn 2>/dev/null | grep -E ':80|:443' | grep ESTABLISHED | wc -l || echo "0")
   
-  $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"},{"Metric":"CPU Usage","Value":"'"${cpu}%"'"},{"Metric":"Active Connections","Value":"'"$connections"'"}]'
+  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"},{"Metric":"CPU Usage","Value":"%s%%"},{"Metric":"Active Connections","Value":"%s"}]\n' \
+    "$status" "$uptime" "$memory" "$cpu" "$connections"
 }
 
 lidarr_stats() {
@@ -734,7 +742,7 @@ lidarr_stats() {
   else
     local lidarr_pid=$(pgrep -f Lidarr | head -1)
     if [ -z "$lidarr_pid" ]; then
-      $ECHO '[{"Metric":"Status","Value":"Not Running"}]'
+      echo '[{"Metric":"Status","Value":"Not Running"}]'
       return
     fi
     local uptime=$(ps -p $lidarr_pid -o etime= 2>/dev/null | tr -d ' ')
@@ -749,9 +757,11 @@ lidarr_stats() {
     local artist_count=$(curl -s -H "X-Api-Key: $api_key" http://localhost:8686/api/v1/artist 2>/dev/null | grep -o '"id":' | wc -l || echo "N/A")
     local album_count=$(curl -s -H "X-Api-Key: $api_key" http://localhost:8686/api/v1/album 2>/dev/null | grep -o '"id":' | wc -l || echo "N/A")
     
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Artists","Value":"'"$artist_count"'"},{"Metric":"Albums","Value":"'"$album_count"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Artists","Value":"%s"},{"Metric":"Albums","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+      "$status" "$artist_count" "$album_count" "$uptime" "$memory"
   else
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+      "$status" "$uptime" "$memory"
   fi
 }
 
@@ -767,7 +777,7 @@ navidrome_stats() {
   else
     local navidrome_pid=$(pgrep -f navidrome | head -1)
     if [ -z "$navidrome_pid" ]; then
-      $ECHO '[{"Metric":"Status","Value":"Not Running"}]'
+      echo '[{"Metric":"Status","Value":"Not Running"}]'
       return
     fi
     local uptime=$(ps -p $navidrome_pid -o etime= 2>/dev/null | tr -d ' ')
@@ -787,9 +797,11 @@ navidrome_stats() {
       local album_count=$(sqlite3 "$db_file" "SELECT COUNT(DISTINCT album) FROM media_file;" 2>/dev/null || echo "N/A")
     fi
     
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Total Songs","Value":"'"$song_count"'"},{"Metric":"Artists","Value":"'"$artist_count"'"},{"Metric":"Albums","Value":"'"$album_count"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Total Songs","Value":"%s"},{"Metric":"Artists","Value":"%s"},{"Metric":"Albums","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+      "$status" "$song_count" "$artist_count" "$album_count" "$uptime" "$memory"
   else
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+      "$status" "$uptime" "$memory"
   fi
 }
 
@@ -804,7 +816,7 @@ beets_stats() {
     local stats_output=$(beet stats 2>/dev/null)
     local status="Installed"
   else
-    $ECHO '[{"Metric":"Status","Value":"Not Installed"}]'
+    echo '[{"Metric":"Status","Value":"Not Installed"}]'
     return
   fi
   
@@ -815,9 +827,10 @@ beets_stats() {
     local artists=$(echo "$stats_output" | grep "Artists:" | awk '{print $2}')
     local albums=$(echo "$stats_output" | grep "Albums:" | awk '{print $2}')
     
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Total Tracks","Value":"'"$total_tracks"'"},{"Metric":"Artists","Value":"'"$artists"'"},{"Metric":"Albums","Value":"'"$albums"'"},{"Metric":"Total Time","Value":"'"$total_time"'"},{"Metric":"Total Size","Value":"'"$total_size"'"}]'
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Total Tracks","Value":"%s"},{"Metric":"Artists","Value":"%s"},{"Metric":"Albums","Value":"%s"},{"Metric":"Total Time","Value":"%s"},{"Metric":"Total Size","Value":"%s"}]\n' \
+      "$status" "$total_tracks" "$artists" "$albums" "$total_time" "$total_size"
   else
-    $ECHO '[{"Metric":"Status","Value":"'"$status"' (No library)"}]'
+    printf '[{"Metric":"Status","Value":"%s (No library)"}]\n' "$status"
   fi
 }
 
@@ -832,7 +845,7 @@ qbittorrent_stats() {
   else
     local qbt_pid=$(pgrep -f qbittorrent | head -1)
     if [ -z "$qbt_pid" ]; then
-      $ECHO '[{"Metric":"Status","Value":"Not Running"}]'
+      echo '[{"Metric":"Status","Value":"Not Running"}]'
       return
     fi
     local uptime=$(ps -p $qbt_pid -o etime= 2>/dev/null | tr -d ' ')
@@ -849,9 +862,11 @@ qbittorrent_stats() {
     local torrent_info=$(curl -s http://localhost:8080/api/v2/torrents/info 2>/dev/null)
     local total_torrents=$(echo "$torrent_info" | grep -o '"hash":"[^"]*"' | wc -l)
     
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Total Torrents","Value":"'"$total_torrents"'"},{"Metric":"Download Speed","Value":"'"$dl_speed"'"},{"Metric":"Upload Speed","Value":"'"$up_speed"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Total Torrents","Value":"%s"},{"Metric":"Download Speed","Value":"%s"},{"Metric":"Upload Speed","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+      "$status" "$total_torrents" "$dl_speed" "$up_speed" "$uptime" "$memory"
   else
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+      "$status" "$uptime" "$memory"
   fi
 }
 
