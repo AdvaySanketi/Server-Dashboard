@@ -673,9 +673,9 @@ pihole_stats() {
     local status=$(echo "$api_data" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
     local unique_clients=$(echo "$api_data" | grep -o '"unique_clients":[0-9]*' | cut -d':' -f2)
     
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Queries Today","Value":"'"$queries_today"'"},{"Metric":"Blocked Today","Value":"'"$blocked_today"'"},{"Metric":"Percent Blocked","Value":"'"${percent_blocked}%"'"},{"Metric":"Blocklist Domains","Value":"'"$domains_blocked"'"},{"Metric":"Unique Clients","Value":"'"$unique_clients"'"}]' | _parseAndPrint
+    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Queries Today","Value":"'"$queries_today"'"},{"Metric":"Blocked Today","Value":"'"$blocked_today"'"},{"Metric":"Percent Blocked","Value":"'"${percent_blocked}%"'"},{"Metric":"Blocklist Domains","Value":"'"$domains_blocked"'"},{"Metric":"Unique Clients","Value":"'"$unique_clients"'"}]'
   else
-    $ECHO '[{"Metric":"Status","Value":"Running (API unavailable)"}]' | _parseAndPrint
+    $ECHO '[{"Metric":"Status","Value":"Running (API unavailable)"}]'
   fi
 }
 
@@ -694,7 +694,7 @@ tailscale_stats() {
   # Get hostname from status
   local hostname=$(tailscale status --self=true 2>/dev/null | awk '{print $2}' || echo "N/A")
   
-  $ECHO '[{"Metric":"Status","Value":"'"$backend_state"'"},{"Metric":"Hostname","Value":"'"$hostname"'"},{"Metric":"IPv4 Address","Value":"'"$ipv4"'"},{"Metric":"IPv6 Address","Value":"'"$ipv6"'"},{"Metric":"Connected Peers","Value":"'"$peer_count"'"}]' | _parseAndPrint
+  $ECHO '[{"Metric":"Status","Value":"'"$backend_state"'"},{"Metric":"Hostname","Value":"'"$hostname"'"},{"Metric":"IPv4 Address","Value":"'"$ipv4"'"},{"Metric":"IPv6 Address","Value":"'"$ipv6"'"},{"Metric":"Connected Peers","Value":"'"$peer_count"'"}]'
 }
 
 caddy_stats() {
@@ -720,7 +720,7 @@ caddy_stats() {
   local cpu=$(ps -p $caddy_pid -o %cpu= 2>/dev/null | tr -d ' ' || echo "N/A")
   local connections=$(netstat -tn 2>/dev/null | grep -E ':80|:443' | grep ESTABLISHED | wc -l || echo "0")
   
-  $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"},{"Metric":"CPU Usage","Value":"'"${cpu}%"'"},{"Metric":"Active Connections","Value":"'"$connections"'"}]' | _parseAndPrint
+  $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"},{"Metric":"CPU Usage","Value":"'"${cpu}%"'"},{"Metric":"Active Connections","Value":"'"$connections"'"}]'
 }
 
 lidarr_stats() {
@@ -749,9 +749,9 @@ lidarr_stats() {
     local artist_count=$(curl -s -H "X-Api-Key: $api_key" http://localhost:8686/api/v1/artist 2>/dev/null | grep -o '"id":' | wc -l || echo "N/A")
     local album_count=$(curl -s -H "X-Api-Key: $api_key" http://localhost:8686/api/v1/album 2>/dev/null | grep -o '"id":' | wc -l || echo "N/A")
     
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Artists","Value":"'"$artist_count"'"},{"Metric":"Albums","Value":"'"$album_count"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]' | _parseAndPrint
+    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Artists","Value":"'"$artist_count"'"},{"Metric":"Albums","Value":"'"$album_count"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
   else
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]' | _parseAndPrint
+    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
   fi
 }
 
@@ -787,9 +787,9 @@ navidrome_stats() {
       local album_count=$(sqlite3 "$db_file" "SELECT COUNT(DISTINCT album) FROM media_file;" 2>/dev/null || echo "N/A")
     fi
     
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Total Songs","Value":"'"$song_count"'"},{"Metric":"Artists","Value":"'"$artist_count"'"},{"Metric":"Albums","Value":"'"$album_count"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]' | _parseAndPrint
+    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Total Songs","Value":"'"$song_count"'"},{"Metric":"Artists","Value":"'"$artist_count"'"},{"Metric":"Albums","Value":"'"$album_count"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
   else
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]' | _parseAndPrint
+    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
   fi
 }
 
@@ -815,9 +815,9 @@ beets_stats() {
     local artists=$(echo "$stats_output" | grep "Artists:" | awk '{print $2}')
     local albums=$(echo "$stats_output" | grep "Albums:" | awk '{print $2}')
     
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Total Tracks","Value":"'"$total_tracks"'"},{"Metric":"Artists","Value":"'"$artists"'"},{"Metric":"Albums","Value":"'"$albums"'"},{"Metric":"Total Time","Value":"'"$total_time"'"},{"Metric":"Total Size","Value":"'"$total_size"'"}]' | _parseAndPrint
+    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Total Tracks","Value":"'"$total_tracks"'"},{"Metric":"Artists","Value":"'"$artists"'"},{"Metric":"Albums","Value":"'"$albums"'"},{"Metric":"Total Time","Value":"'"$total_time"'"},{"Metric":"Total Size","Value":"'"$total_size"'"}]'
   else
-    $ECHO '[{"Metric":"Status","Value":"'"$status"' (No library)"}]' | _parseAndPrint
+    $ECHO '[{"Metric":"Status","Value":"'"$status"' (No library)"}]'
   fi
 }
 
@@ -849,9 +849,9 @@ qbittorrent_stats() {
     local torrent_info=$(curl -s http://localhost:8080/api/v2/torrents/info 2>/dev/null)
     local total_torrents=$(echo "$torrent_info" | grep -o '"hash":"[^"]*"' | wc -l)
     
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Total Torrents","Value":"'"$total_torrents"'"},{"Metric":"Download Speed","Value":"'"$dl_speed"'"},{"Metric":"Upload Speed","Value":"'"$up_speed"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]' | _parseAndPrint
+    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Total Torrents","Value":"'"$total_torrents"'"},{"Metric":"Download Speed","Value":"'"$dl_speed"'"},{"Metric":"Upload Speed","Value":"'"$up_speed"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
   else
-    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]' | _parseAndPrint
+    $ECHO '[{"Metric":"Status","Value":"'"$status"'"},{"Metric":"Uptime","Value":"'"$uptime"'"},{"Metric":"Memory Usage","Value":"'"$memory"'"}]'
   fi
 }
 
