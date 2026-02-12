@@ -659,18 +659,47 @@ pihole_stats() {
   # Check if Pi-hole is installed (native or Docker)
   local pihole_container=$(docker ps --filter "name=pihole" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
   
+  # Load Pi-hole password from .env file in project root
+  local script_dir=$(cd "$(dirname "$0")/../.." && pwd)
+  local pihole_password=""
+  
+  if [ -f "$script_dir/.env" ]; then
+    pihole_password=$(grep "^PIHOLE_PASSWORD=" "$script_dir/.env" | cut -d'=' -f2)
+  fi
+  
+  if [ -z "$pihole_password" ]; then
+    printf '{"error":"Pi-hole password not configured in .env"}'
+    return
+  fi
+  
+  # Pi-hole authentication uses double SHA256
+  local api_token=$(echo -n "$pihole_password" | sha256sum | awk '{print $1}' | xargs -I {} echo -n {} | sha256sum | awk '{print $1}')
+  
+  # Build API URL with auth
+  local api_url="http://localhost/admin/api.php?summary&auth=$api_token"
+  
+  # Try to access Pi-hole API
   if [ -n "$pihole_container" ]; then
-    # Pi-hole running in Docker - use docker exec to access API
-    local api_data=$(docker exec "$pihole_container" curl -s http://localhost/admin/api.php?summary 2>/dev/null)
+    # Pi-hole running in Docker - access from host on the exposed port
+    local api_data=$(curl -s "$api_url" 2>/dev/null)
+    # If that fails, try common Pi-hole ports
+    if [ -z "$api_data" ] || echo "$api_data" | grep -q "error"; then
+      api_url="http://localhost:8080/admin/api.php?summary&auth=$api_token"
+      api_data=$(curl -s "$api_url" 2>/dev/null)
+    fi
+    if [ -z "$api_data" ] || echo "$api_data" | grep -q "error"; then
+      api_url="http://localhost:8089/admin/api.php?summary&auth=$api_token"
+      api_data=$(curl -s "$api_url" 2>/dev/null)
+    fi
   elif [ -f "/usr/local/bin/pihole" ] || [ -f "/usr/bin/pihole" ]; then
     # Native Pi-hole installation
-    local api_data=$(curl -s http://localhost/admin/api.php?summary 2>/dev/null)
+    local api_data=$(curl -s "$api_url" 2>/dev/null)
   else
     echo '[{"Metric":"Status","Value":"Not Installed"}]'
     return
   fi
   
-  if [ -n "$api_data" ]; then
+  if [ -n "$api_data" ] && ! echo "$api_data" | grep -q "error"; then
     local queries_today=$(echo "$api_data" | grep -o '"dns_queries_today":[0-9]*' | cut -d':' -f2)
     local blocked_today=$(echo "$api_data" | grep -o '"ads_blocked_today":[0-9]*' | cut -d':' -f2)
     local percent_blocked=$(echo "$api_data" | grep -o '"ads_percentage_today":[0-9.]*' | cut -d':' -f2)
@@ -697,7 +726,7 @@ pihole_stats() {
     printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Queries Today","Value":"%s"},{"Metric":"Blocked Today","Value":"%s"},{"Metric":"Percent Blocked","Value":"%s%%"},{"Metric":"Blocklist Domains","Value":"%s"},{"Metric":"Unique Clients","Value":"%s"}]' \
       "$status" "$queries_today" "$blocked_today" "$percent_blocked" "$domains_blocked" "$unique_clients"
   else
-    echo '[{"Metric":"Status","Value":"Running (API unavailable)"}]'
+    echo '[{"Metric":"Status","Value":"Running (Auth Required)"}]'
   fi
 }
 
@@ -711,13 +740,16 @@ tailscale_stats() {
   local backend_state=$(tailscale status 2>/dev/null | head -1 | awk '{print $NF}' | tr -d '\n\r\t' || echo "unknown")
   local ipv4=$(tailscale ip -4 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
   local ipv6=$(tailscale ip -6 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
+  
+  # Get all peer hostnames (skip first line which is self) and join with commas
+  local peer_hostnames=$(tailscale status 2>/dev/null | tail -n +2 | awk '{print $2}' | tr '\n' ',' | sed 's/,$//' | tr -d '\r\t' || echo "None")
   local peer_count=$(tailscale status 2>/dev/null | tail -n +2 | wc -l | tr -d '\n\r\t' || echo "0")
   
-  # Get hostname from status
-  local hostname=$(tailscale status --self=true 2>/dev/null | awk '{print $2}' | tr -d '\n\r\t' || echo "N/A")
+  # Get self hostname from first line
+  local hostname=$(tailscale status 2>/dev/null | awk 'NR==1 {print $2}' | tr -d '\n\r\t' || echo "N/A")
   
-  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Hostname","Value":"%s"},{"Metric":"IPv4 Address","Value":"%s"},{"Metric":"IPv6 Address","Value":"%s"},{"Metric":"Connected Peers","Value":"%s"}]' \
-    "$backend_state" "$hostname" "$ipv4" "$ipv6" "$peer_count"
+  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Hostname","Value":"%s"},{"Metric":"IPv4 Address","Value":"%s"},{"Metric":"IPv6 Address","Value":"%s"},{"Metric":"Connected Peers","Value":"%s"},{"Metric":"Peer Hostnames","Value":"%s"}]' \
+    "$backend_state" "$hostname" "$ipv4" "$ipv6" "$peer_count" "$peer_hostnames"
 }
 
 caddy_stats() {
