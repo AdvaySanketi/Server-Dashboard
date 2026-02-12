@@ -37,7 +37,7 @@ body{
 }
 
 .centered{margin:0 auto}
-#plugins{padding-top:0;margin-top:0;border:1px;margin-left:10%}
+#plugins{padding-top:0;margin-top:0;border:1px;margin-left:10%;padding-bottom:50px;}
 
 /* Tables */
 table td,table th{border-bottom:1px solid var(--border-color)}
