@@ -32,8 +32,8 @@ var simpleTableModules = [
     template: '<table-data heading="Logged In Accounts" module-name="logged_in_users" info="Users currently logged in."></table-data>'
   },
   {
-    name: 'recentLogins',
-    template: '<table-data heading="Recent Logins" module-name="recent_account_logins" info="Recent user sessions."></table-data>'
+    name: 'sshSessions',
+    template: '<table-data heading="SSH Sessions" module-name="ssh_sessions" info="Active SSH sessions."></table-data>'
   },
   {
     name: 'arpCacheTable',
@@ -90,6 +90,34 @@ var simpleTableModules = [
   {
     name: 'cronHistory',
     template: '<table-data heading="Cron Job History" module-name="cron_history" info="Crons which have run recently."></table-data>'
+  },
+  {
+    name: 'piholeStats',
+    template: '<table-data heading="Pi-hole Stats" module-name="pihole_stats" info="Pi-hole DNS statistics and blocking info." link-url="http://the-archive:8888/admin"></table-data>'
+  },
+  {
+    name: 'tailscaleStats',
+    template: '<table-data heading="Tailscale Stats" module-name="tailscale_stats" info="Tailscale VPN network status." link-url="https://login.tailscale.com/admin/machines"></table-data>'
+  },
+  {
+    name: 'caddyStats',
+    template: '<table-data heading="Caddy Stats" module-name="caddy_stats" info="Caddy web server metrics."></table-data>'
+  },
+  {
+    name: 'lidarrStats',
+    template: '<table-data heading="Lidarr Stats" module-name="lidarr_stats" info="Lidarr music management statistics." link-url="http://the-archive:8686"></table-data>'
+  },
+  {
+    name: 'navidromeStats',
+    template: '<table-data heading="Navidrome Stats" module-name="navidrome_stats" info="Navidrome music server statistics." link-url="http://the-archive:4533"></table-data>'
+  },
+  {
+    name: 'beetsStats',
+    template: '<table-data heading="Beets Stats" module-name="beets_stats" info="Beets music library statistics."></table-data>'
+  },
+  {
+    name: 'qbittorrentStats',
+    template: '<table-data heading="qBittorrent Stats" module-name="qbittorrent_stats" info="qBittorrent torrent client statistics." link-url="http://the-archive:8089"></table-data>'
   }
 ]
 

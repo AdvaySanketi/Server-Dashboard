@@ -62,7 +62,7 @@ function routesFn($routeProvider) {
       template: [
         '<server-accounts sortablejs-id="server-accounts"></server-accounts> ',
         '<logged-in-accounts sortablejs-id="logged-in"></logged-in-accounts> ',
-        '<recent-logins sortablejs-id="recent"></recent-logins> ',
+        '<ssh-sessions sortablejs-id="ssh"></ssh-sessions> ',
       ].join(''),
     })
 

@@ -352,18 +352,21 @@ memory_info() {
 }
 
 network_connections() {
-
   local netstatCmd=$(type -P netstat)
   local sortCmd=$(type -P sort)
   local uniqCmd=$(type -P uniq)
 
-  $netstatCmd -ntu \
-  | $AWK 'NR>2 {print $5}' \
-  | $sortCmd \
-  | $uniqCmd -c \
-  | $AWK 'BEGIN {print "["} {print "{ \"connections\": " $1 ", \"address\": \"" $2 "\" }," } END {print "]"}' \
-  | $SED 'N;$s/},/}/;P;D' \
-  | _parseAndPrint
+  result=$($netstatCmd -ntu 2>/dev/null \
+    | $AWK 'NR>2 {print $5}' \
+    | $sortCmd \
+    | $uniqCmd -c \
+    | $AWK '{print "{ \"connections\": " $1 ", \"address\": \"" $2 "\" },"}')
+  
+  if [ -z "$result" ]; then
+    printf '[{"connections":"0","address":"No active connections"}]'
+  else
+    printf '[%s]' "${result%?}"
+  fi
 }
 
 number_of_cpu_cores() {
@@ -452,19 +455,21 @@ ram_intensive_processes() {
   $ECHO [ ${result%?} ] | _parseAndPrint
 }
 
-recent_account_logins() {
-
-  local lastLogCommand=$(type -p lastlog)
-
-  result=$($lastLogCommand -t 365 \
-        | $AWK 'NR>1 {\
-          print "{ \
-            \"user\": \"" $1 "\", \
-            \"ip\": \"" $3 "\","" \
-            \"date\": \"" $5" "$6" "$7" "$8" "$9 "\"},"
-          }'
-      )
-  $ECHO [ ${result%?} ] | _parseAndPrint
+ssh_sessions() {
+  # Track active SSH sessions
+  result=$(who | grep -E 'pts/|tty' | $AWK '{
+    print "{ \
+      \"user\": \"" $1 "\", \
+      \"terminal\": \"" $2 "\", \
+      \"ip\": \"" $5 "\", \
+      \"login_time\": \"" $3 " " $4 "\" },"
+  }')
+  
+  if [ -z "$result" ]; then
+    printf '[{"user":"None","terminal":"N/A","ip":"N/A","login_time":"N/A"}]'
+  else
+    printf '[%s]' "${result%?}"
+  fi
 }
 
 redis() {

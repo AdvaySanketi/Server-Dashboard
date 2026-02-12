@@ -1,4 +1,4 @@
-angular.module('archiveDashboard').directive('navBar', ['$location', function($location) {
+angular.module('archiveDashboard').directive('navBar', ['$location', '$interval', function($location, $interval) {
   return {
     template: '\
       \
@@ -9,9 +9,8 @@ angular.module('archiveDashboard').directive('navBar', ['$location', function($l
           <a href="#/{{navItem}}" ng-bind="getNavItemName(navItem)"></a> \
         </li> \
       </ul> \
-      <span class="right-content">\
-        Resources:\
-        <a target="_blank" href="#">GitHub</a> \
+      <span class="right-content" style="font-family: monospace; font-size: 14px;">\
+        {{ currentTime }}\
       </span>\
     ',
     link: function(scope) {
@@ -20,7 +19,7 @@ angular.module('archiveDashboard').directive('navBar', ['$location', function($l
         'basic-info',
         'network',
         'accounts',
-        'apps'
+        'services'
       ]
 
       scope.getNavItemName = function(url) {
@@ -30,6 +29,15 @@ angular.module('archiveDashboard').directive('navBar', ['$location', function($l
       scope.isActive = function(route) {
         return '/' + route === $location.path()
       }
+
+      // Update current time every second
+      var updateTime = function() {
+        var now = new Date()
+        scope.currentTime = now.toLocaleTimeString('en-US', { hour12: false })
+      }
+      
+      updateTime()
+      $interval(updateTime, 1000)
     }
   }
 }])

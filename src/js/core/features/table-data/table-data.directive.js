@@ -5,7 +5,8 @@ angular.module('archiveDashboard').directive('tableData', ['server', '$rootScope
       info: '@',
       moduleName: '@',
       width: '@',
-      height: '@'
+      height: '@',
+      linkUrl: '@'
     },
     templateUrl: 'src/js/core/features/table-data/table-data.html',
     link: function(scope, element) {
