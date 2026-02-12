@@ -659,69 +659,65 @@ pihole_stats() {
   # Check if Pi-hole is installed (native or Docker)
   local pihole_container=$(docker ps --filter "name=pihole" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
   
-  # Load Pi-hole password from .env file in project root
-  local script_dir=$(cd "$(dirname "$0")/../.." && pwd)
-  local pihole_password=""
-  
-  if [ -f "$script_dir/.env" ]; then
-    pihole_password=$(grep "^PIHOLE_PASSWORD=" "$script_dir/.env" | cut -d'=' -f2)
-  fi
-  
-  if [ -z "$pihole_password" ]; then
-    printf '{"error":"Pi-hole password not configured in .env"}'
-    return
-  fi
-  
-  # Pi-hole authentication uses double SHA256
-  local api_token=$(echo -n "$pihole_password" | sha256sum | awk '{print $1}' | xargs -I {} echo -n {} | sha256sum | awk '{print $1}')
-  
   local api_data=""
   
   # Try to access Pi-hole API
   if [ -n "$pihole_container" ]; then
-    # Pi-hole running in Docker on port 8888
-    api_data=$(curl -s "http://localhost:8888/admin/api.php?summary&auth=$api_token" 2>/dev/null)
+    # Pi-hole running in Docker - use CLI password from container
+    local cli_password=$(docker exec "$pihole_container" cat /etc/pihole/cli_pw 2>/dev/null | tr -d '\n\r\t')
     
-    # If that fails, try accessing directly in container
-    if [ -z "$api_data" ] || echo "$api_data" | grep -q "error"; then
-      api_data=$(docker exec "$pihole_container" curl -s "http://localhost/admin/api.php?summary&auth=$api_token" 2>/dev/null)
+    if [ -n "$cli_password" ]; then
+      # Authenticate to get session ID
+      local auth_response=$(curl -s "http://localhost:8888/api/auth" -X POST -H "Content-Type: application/json" -d "{\"password\":\"$cli_password\"}" 2>/dev/null)
+      local sid=$(echo "$auth_response" | grep -o '"sid":"[^"]*"' | cut -d'"' -f4 | tr -d '\n\r\t')
+      
+      if [ -n "$sid" ]; then
+        # Use session ID to get stats
+        api_data=$(curl -s "http://localhost:8888/api/stats/summary" -H "X-FTL-SID: $sid" 2>/dev/null)
+      fi
     fi
   elif [ -f "/usr/local/bin/pihole" ] || [ -f "/usr/bin/pihole" ]; then
     # Native Pi-hole installation
-    api_data=$(curl -s "http://localhost/admin/api.php?summary&auth=$api_token" 2>/dev/null)
+    local cli_password=$(cat /etc/pihole/cli_pw 2>/dev/null | tr -d '\n\r\t')
+    if [ -n "$cli_password" ]; then
+      local auth_response=$(curl -s "http://localhost/api/auth" -X POST -H "Content-Type: application/json" -d "{\"password\":\"$cli_password\"}" 2>/dev/null)
+      local sid=$(echo "$auth_response" | grep -o '"sid":"[^"]*"' | cut -d'"' -f4 | tr -d '\n\r\t')
+      
+      if [ -n "$sid" ]; then
+        api_data=$(curl -s "http://localhost/api/stats/summary" -H "X-FTL-SID: $sid" 2>/dev/null)
+      fi
+    fi
   else
     echo '[{"Metric":"Status","Value":"Not Installed"}]'
     return
   fi
   
   if [ -n "$api_data" ] && ! echo "$api_data" | grep -q "error"; then
-    local queries_today=$(echo "$api_data" | grep -o '"dns_queries_today":[0-9]*' | cut -d':' -f2)
-    local blocked_today=$(echo "$api_data" | grep -o '"ads_blocked_today":[0-9]*' | cut -d':' -f2)
-    local percent_blocked=$(echo "$api_data" | grep -o '"ads_percentage_today":[0-9.]*' | cut -d':' -f2)
+    # Parse new API format
+    local queries_total=$(echo "$api_data" | grep -o '"total":[0-9]*' | head -1 | cut -d':' -f2)
+    local blocked_total=$(echo "$api_data" | grep -o '"blocked":[0-9]*' | head -1 | cut -d':' -f2)
+    local percent_blocked=$(echo "$api_data" | grep -o '"percent_blocked":[0-9.]*' | cut -d':' -f2)
     local domains_blocked=$(echo "$api_data" | grep -o '"domains_being_blocked":[0-9]*' | cut -d':' -f2)
-    local status=$(echo "$api_data" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
-    local unique_clients=$(echo "$api_data" | grep -o '"unique_clients":[0-9]*' | cut -d':' -f2)
+    local active_clients=$(echo "$api_data" | grep -o '"active":[0-9]*' | cut -d':' -f2)
     
     # Clean variables to remove any control characters
-    status=$(echo "$status" | tr -d '\n\r\t')
-    queries_today=$(echo "$queries_today" | tr -d '\n\r\t')
-    blocked_today=$(echo "$blocked_today" | tr -d '\n\r\t')
+    queries_total=$(echo "$queries_total" | tr -d '\n\r\t')
+    blocked_total=$(echo "$blocked_total" | tr -d '\n\r\t')
     percent_blocked=$(echo "$percent_blocked" | tr -d '\n\r\t')
     domains_blocked=$(echo "$domains_blocked" | tr -d '\n\r\t')
-    unique_clients=$(echo "$unique_clients" | tr -d '\n\r\t')
+    active_clients=$(echo "$active_clients" | tr -d '\n\r\t')
     
     # Set defaults if empty
-    status="${status:-enabled}"
-    queries_today="${queries_today:-0}"
-    blocked_today="${blocked_today:-0}"
+    queries_total="${queries_total:-0}"
+    blocked_total="${blocked_total:-0}"
     percent_blocked="${percent_blocked:-0}"
     domains_blocked="${domains_blocked:-0}"
-    unique_clients="${unique_clients:-0}"
+    active_clients="${active_clients:-0}"
     
-    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Queries Today","Value":"%s"},{"Metric":"Blocked Today","Value":"%s"},{"Metric":"Percent Blocked","Value":"%s%%"},{"Metric":"Blocklist Domains","Value":"%s"},{"Metric":"Unique Clients","Value":"%s"}]' \
-      "$status" "$queries_today" "$blocked_today" "$percent_blocked" "$domains_blocked" "$unique_clients"
+    printf '[{"Metric":"Status","Value":"Running"},{"Metric":"Queries Today","Value":"%s"},{"Metric":"Blocked Today","Value":"%s"},{"Metric":"Percent Blocked","Value":"%.1f%%"},{"Metric":"Blocklist Domains","Value":"%s"},{"Metric":"Active Clients","Value":"%s"}]' \
+      "$queries_total" "$blocked_total" "$percent_blocked" "$domains_blocked" "$active_clients"
   else
-    echo '[{"Metric":"Status","Value":"Running (Auth Required)"}]'
+    echo '[{"Metric":"Status","Value":"Running (Auth Failed)"}]'
   fi
 }
 
