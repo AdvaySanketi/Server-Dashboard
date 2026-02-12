@@ -677,8 +677,15 @@ pihole_stats() {
     local status=$(echo "$api_data" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
     local unique_clients=$(echo "$api_data" | grep -o '"unique_clients":[0-9]*' | cut -d':' -f2)
     
-    # Use printf to build JSON with proper escaping
-    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Queries Today","Value":"%s"},{"Metric":"Blocked Today","Value":"%s"},{"Metric":"Percent Blocked","Value":"%s%%"},{"Metric":"Blocklist Domains","Value":"%s"},{"Metric":"Unique Clients","Value":"%s"}]\n' \
+    # Clean variables to remove any control characters
+    status=$(echo "$status" | tr -d '\n\r\t')
+    queries_today=$(echo "$queries_today" | tr -d '\n\r\t')
+    blocked_today=$(echo "$blocked_today" | tr -d '\n\r\t')
+    percent_blocked=$(echo "$percent_blocked" | tr -d '\n\r\t')
+    domains_blocked=$(echo "$domains_blocked" | tr -d '\n\r\t')
+    unique_clients=$(echo "$unique_clients" | tr -d '\n\r\t')
+    
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Queries Today","Value":"%s"},{"Metric":"Blocked Today","Value":"%s"},{"Metric":"Percent Blocked","Value":"%s%%"},{"Metric":"Blocklist Domains","Value":"%s"},{"Metric":"Unique Clients","Value":"%s"}]' \
       "$status" "$queries_today" "$blocked_today" "$percent_blocked" "$domains_blocked" "$unique_clients"
   else
     echo '[{"Metric":"Status","Value":"Running (API unavailable)"}]'
@@ -692,15 +699,15 @@ tailscale_stats() {
     return
   fi
   
-  local backend_state=$(tailscale status 2>/dev/null | head -1 | awk '{print $NF}' || echo "unknown")
-  local ipv4=$(tailscale ip -4 2>/dev/null || echo "N/A")
-  local ipv6=$(tailscale ip -6 2>/dev/null || echo "N/A")
-  local peer_count=$(tailscale status 2>/dev/null | tail -n +2 | wc -l || echo "0")
+  local backend_state=$(tailscale status 2>/dev/null | head -1 | awk '{print $NF}' | tr -d '\n\r\t' || echo "unknown")
+  local ipv4=$(tailscale ip -4 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
+  local ipv6=$(tailscale ip -6 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
+  local peer_count=$(tailscale status 2>/dev/null | tail -n +2 | wc -l | tr -d '\n\r\t' || echo "0")
   
   # Get hostname from status
-  local hostname=$(tailscale status --self=true 2>/dev/null | awk '{print $2}' || echo "N/A")
+  local hostname=$(tailscale status --self=true 2>/dev/null | awk '{print $2}' | tr -d '\n\r\t' || echo "N/A")
   
-  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Hostname","Value":"%s"},{"Metric":"IPv4 Address","Value":"%s"},{"Metric":"IPv6 Address","Value":"%s"},{"Metric":"Connected Peers","Value":"%s"}]\n' \
+  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Hostname","Value":"%s"},{"Metric":"IPv4 Address","Value":"%s"},{"Metric":"IPv6 Address","Value":"%s"},{"Metric":"Connected Peers","Value":"%s"}]' \
     "$backend_state" "$hostname" "$ipv4" "$ipv6" "$peer_count"
 }
 
@@ -724,10 +731,15 @@ caddy_stats() {
     local status="Running"
   fi
   
-  local cpu=$(ps -p $caddy_pid -o %cpu= 2>/dev/null | tr -d ' ' || echo "N/A")
-  local connections=$(netstat -tn 2>/dev/null | grep -E ':80|:443' | grep ESTABLISHED | wc -l || echo "0")
+  local cpu=$(ps -p $caddy_pid -o %cpu= 2>/dev/null | tr -d ' \n\r\t' || echo "N/A")
+  local connections=$(netstat -tn 2>/dev/null | grep -E ':80|:443' | grep ESTABLISHED | wc -l | tr -d '\n\r\t' || echo "0")
   
-  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"},{"Metric":"CPU Usage","Value":"%s%%"},{"Metric":"Active Connections","Value":"%s"}]\n' \
+  # Clean variables
+  status=$(echo "$status" | tr -d '\n\r\t')
+  uptime=$(echo "$uptime" | tr -d '\n\r\t')
+  memory=$(echo "$memory" | tr -d '\n\r\t')
+  
+  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"},{"Metric":"CPU Usage","Value":"%s%%"},{"Metric":"Active Connections","Value":"%s"}]' \
     "$status" "$uptime" "$memory" "$cpu" "$connections"
 }
 
@@ -753,14 +765,19 @@ lidarr_stats() {
   # Try to get Lidarr API stats (default port 8686)
   local api_key=$(grep -r "ApiKey" ~/.config/Lidarr/config.xml /config/config.xml 2>/dev/null | sed -n 's/.*<ApiKey>\(.*\)<\/ApiKey>.*/\1/p' | head -1)
   
+  # Clean variables
+  status=$(echo "$status" | tr -d '\n\r\t')
+  uptime=$(echo "$uptime" | tr -d '\n\r\t')
+  memory=$(echo "$memory" | tr -d '\n\r\t')
+  
   if [ -n "$api_key" ]; then
-    local artist_count=$(curl -s -H "X-Api-Key: $api_key" http://localhost:8686/api/v1/artist 2>/dev/null | grep -o '"id":' | wc -l || echo "N/A")
-    local album_count=$(curl -s -H "X-Api-Key: $api_key" http://localhost:8686/api/v1/album 2>/dev/null | grep -o '"id":' | wc -l || echo "N/A")
+    local artist_count=$(curl -s -H "X-Api-Key: $api_key" http://localhost:8686/api/v1/artist 2>/dev/null | grep -o '"id":' | wc -l | tr -d '\n\r\t' || echo "N/A")
+    local album_count=$(curl -s -H "X-Api-Key: $api_key" http://localhost:8686/api/v1/album 2>/dev/null | grep -o '"id":' | wc -l | tr -d '\n\r\t' || echo "N/A")
     
-    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Artists","Value":"%s"},{"Metric":"Albums","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Artists","Value":"%s"},{"Metric":"Albums","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]' \
       "$status" "$artist_count" "$album_count" "$uptime" "$memory"
   else
-    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]' \
       "$status" "$uptime" "$memory"
   fi
 }
@@ -786,21 +803,26 @@ navidrome_stats() {
     local db_file=$(find /var/lib/navidrome ~/.local/share/navidrome -name "navidrome.db" 2>/dev/null | head -1)
   fi
   
+  # Clean variables
+  status=$(echo "$status" | tr -d '\n\r\t')
+  uptime=$(echo "$uptime" | tr -d '\n\r\t')
+  memory=$(echo "$memory" | tr -d '\n\r\t')
+  
   if [ -n "$db_file" ] && command -v sqlite3 >/dev/null 2>&1; then
     if [ -n "$navidrome_container" ]; then
-      local song_count=$(docker exec "$navidrome_container" sqlite3 "$db_file" "SELECT COUNT(*) FROM media_file;" 2>/dev/null || echo "N/A")
-      local artist_count=$(docker exec "$navidrome_container" sqlite3 "$db_file" "SELECT COUNT(DISTINCT artist) FROM media_file;" 2>/dev/null || echo "N/A")
-      local album_count=$(docker exec "$navidrome_container" sqlite3 "$db_file" "SELECT COUNT(DISTINCT album) FROM media_file;" 2>/dev/null || echo "N/A")
+      local song_count=$(docker exec "$navidrome_container" sqlite3 "$db_file" "SELECT COUNT(*) FROM media_file;" 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
+      local artist_count=$(docker exec "$navidrome_container" sqlite3 "$db_file" "SELECT COUNT(DISTINCT artist) FROM media_file;" 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
+      local album_count=$(docker exec "$navidrome_container" sqlite3 "$db_file" "SELECT COUNT(DISTINCT album) FROM media_file;" 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
     else
-      local song_count=$(sqlite3 "$db_file" "SELECT COUNT(*) FROM media_file;" 2>/dev/null || echo "N/A")
-      local artist_count=$(sqlite3 "$db_file" "SELECT COUNT(DISTINCT artist) FROM media_file;" 2>/dev/null || echo "N/A")
-      local album_count=$(sqlite3 "$db_file" "SELECT COUNT(DISTINCT album) FROM media_file;" 2>/dev/null || echo "N/A")
+      local song_count=$(sqlite3 "$db_file" "SELECT COUNT(*) FROM media_file;" 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
+      local artist_count=$(sqlite3 "$db_file" "SELECT COUNT(DISTINCT artist) FROM media_file;" 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
+      local album_count=$(sqlite3 "$db_file" "SELECT COUNT(DISTINCT album) FROM media_file;" 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
     fi
     
-    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Total Songs","Value":"%s"},{"Metric":"Artists","Value":"%s"},{"Metric":"Albums","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Total Songs","Value":"%s"},{"Metric":"Artists","Value":"%s"},{"Metric":"Albums","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]' \
       "$status" "$song_count" "$artist_count" "$album_count" "$uptime" "$memory"
   else
-    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]' \
       "$status" "$uptime" "$memory"
   fi
 }
@@ -821,16 +843,18 @@ beets_stats() {
   fi
   
   if [ -n "$stats_output" ]; then
-    local total_tracks=$(echo "$stats_output" | grep "Tracks:" | awk '{print $2}')
-    local total_time=$(echo "$stats_output" | grep "Total time:" | awk '{print $3, $4}')
-    local total_size=$(echo "$stats_output" | grep "Total size:" | awk '{print $3, $4}')
-    local artists=$(echo "$stats_output" | grep "Artists:" | awk '{print $2}')
-    local albums=$(echo "$stats_output" | grep "Albums:" | awk '{print $2}')
+    local total_tracks=$(echo "$stats_output" | grep "Tracks:" | awk '{print $2}' | tr -d '\n\r\t')
+    local total_time=$(echo "$stats_output" | grep "Total time:" | awk '{print $3, $4}' | tr -d '\n\r\t')
+    local total_size=$(echo "$stats_output" | grep "Total size:" | awk '{print $3, $4}' | tr -d '\n\r\t')
+    local artists=$(echo "$stats_output" | grep "Artists:" | awk '{print $2}' | tr -d '\n\r\t')
+    local albums=$(echo "$stats_output" | grep "Albums:" | awk '{print $2}' | tr -d '\n\r\t')
+    status=$(echo "$status" | tr -d '\n\r\t')
     
-    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Total Tracks","Value":"%s"},{"Metric":"Artists","Value":"%s"},{"Metric":"Albums","Value":"%s"},{"Metric":"Total Time","Value":"%s"},{"Metric":"Total Size","Value":"%s"}]\n' \
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Total Tracks","Value":"%s"},{"Metric":"Artists","Value":"%s"},{"Metric":"Albums","Value":"%s"},{"Metric":"Total Time","Value":"%s"},{"Metric":"Total Size","Value":"%s"}]' \
       "$status" "$total_tracks" "$artists" "$albums" "$total_time" "$total_size"
   else
-    printf '[{"Metric":"Status","Value":"%s (No library)"}]\n' "$status"
+    status=$(echo "$status" | tr -d '\n\r\t')
+    printf '[{"Metric":"Status","Value":"%s (No library)"}]' "$status"
   fi
 }
 
@@ -856,16 +880,21 @@ qbittorrent_stats() {
   # Try to get qBittorrent Web API stats (default port 8080)
   local api_response=$(curl -s http://localhost:8080/api/v2/transfer/info 2>/dev/null)
   
+  # Clean variables
+  status=$(echo "$status" | tr -d '\n\r\t')
+  uptime=$(echo "$uptime" | tr -d '\n\r\t')
+  memory=$(echo "$memory" | tr -d '\n\r\t')
+  
   if [ -n "$api_response" ]; then
-    local dl_speed=$(echo "$api_response" | grep -o '"dl_info_speed":[0-9]*' | cut -d':' -f2 | awk '{printf "%.2f KB/s", $1/1024}')
-    local up_speed=$(echo "$api_response" | grep -o '"up_info_speed":[0-9]*' | cut -d':' -f2 | awk '{printf "%.2f KB/s", $1/1024}')
+    local dl_speed=$(echo "$api_response" | grep -o '"dl_info_speed":[0-9]*' | cut -d':' -f2 | awk '{printf "%.2f KB/s", $1/1024}' | tr -d '\n\r\t')
+    local up_speed=$(echo "$api_response" | grep -o '"up_info_speed":[0-9]*' | cut -d':' -f2 | awk '{printf "%.2f KB/s", $1/1024}' | tr -d '\n\r\t')
     local torrent_info=$(curl -s http://localhost:8080/api/v2/torrents/info 2>/dev/null)
-    local total_torrents=$(echo "$torrent_info" | grep -o '"hash":"[^"]*"' | wc -l)
+    local total_torrents=$(echo "$torrent_info" | grep -o '"hash":"[^"]*"' | wc -l | tr -d '\n\r\t')
     
-    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Total Torrents","Value":"%s"},{"Metric":"Download Speed","Value":"%s"},{"Metric":"Upload Speed","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Total Torrents","Value":"%s"},{"Metric":"Download Speed","Value":"%s"},{"Metric":"Upload Speed","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]' \
       "$status" "$total_torrents" "$dl_speed" "$up_speed" "$uptime" "$memory"
   else
-    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]\n' \
+    printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"}]' \
       "$status" "$uptime" "$memory"
   fi
 }
