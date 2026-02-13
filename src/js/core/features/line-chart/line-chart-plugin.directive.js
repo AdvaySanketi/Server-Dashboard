@@ -136,6 +136,12 @@ angular.module('archiveDashboard').directive('lineChartPlugin', [
           // set the directive-provided interval
           // at which to run the chart update
           var intervalRef = $interval(scope.getData, scope.refreshRate)
+          
+          // Initial data load after a short delay to ensure canvas is ready
+          setTimeout(function() {
+            scope.getData()
+          }, 100)
+          
           var removeInterval = function() {
             $interval.cancel(intervalRef)
           }
