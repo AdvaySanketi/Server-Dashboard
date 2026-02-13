@@ -67,3 +67,17 @@
   background: #eee;
   color: #000;
 }
+
+.link-btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.link-btn:hover {
+  background-color: #0f9d58;
+  color: white;
+}

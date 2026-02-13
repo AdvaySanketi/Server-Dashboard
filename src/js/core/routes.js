@@ -29,9 +29,10 @@ function routesFn($routeProvider) {
         '<cpu-temp sortablejs-id="cpu-temp"></cpu-temp> ',
         '<ram-intensive-processes enlarged sortablejs-id="ram-intensive-processes"></ram-intensive-processes> ',
         '<cpu-intensive-processes enlarged sortablejs-id="cpu-intensive-processes"></cpu-intensive-processes> ',
+        '<total-disk-usage sortablejs-id="total-disk-usage"></total-disk-usage> ',
         '<disk-space sortablejs-id="disk-space"></disk-space> ',
         '<swap-usage sortablejs-id="swap-usage"></swap-usage> ',
-        '<docker-processes enlarged sortablejs-id="docker"></docker-processes> ',
+        '<docker-processes sortablejs-id="docker"></docker-processes> ',
       ].join(''),
     })
 

@@ -7,13 +7,13 @@ angular.module('archiveDashboard').directive('tableData', ['server', '$rootScope
       width: '@',
       height: '@',
       linkUrl: '@',
-      enlarged: '@'
+      enlarged: '@?'
     },
     templateUrl: 'src/js/core/features/table-data/table-data.html',
     link: function(scope, element, attrs) {
 
       // Set isEnlarged based on attribute presence
-      scope.isEnlarged = attrs.hasOwnProperty('enlarged');
+      scope.isEnlarged = attrs.hasOwnProperty('enlarged') || null;
 
       scope.sortByColumn = null
       scope.sortReverse = null

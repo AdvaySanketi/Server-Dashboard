@@ -59,9 +59,39 @@ angular.module('archiveDashboard').directive('multiLineChartPlugin', [
           },
           {
             strokeStyle: 'rgba(255, 255, 0, 1)',
-            lineWidth: 1
+            lineWidth: 2
+          },
+          {
+            strokeStyle: 'rgba(255, 0, 255, 1)',
+            lineWidth: 2
+          },
+          {
+            strokeStyle: 'rgba(0, 255, 255, 1)',
+            lineWidth: 2
+          },
+          {
+            strokeStyle: 'rgba(128, 0, 128, 1)',
+            lineWidth: 2
+          },
+          {
+            strokeStyle: 'rgba(255, 128, 0, 1)',
+            lineWidth: 2
           }
         ]
+
+        var getSeriesOption = function(index) {
+          if (index < seriesOptions.length) {
+            return seriesOptions[index];
+          }
+          // Generate a random color for additional lines
+          var r = Math.floor(Math.random() * 256);
+          var g = Math.floor(Math.random() * 256);
+          var b = Math.floor(Math.random() * 256);
+          return {
+            strokeStyle: 'rgba(' + r + ', ' + g + ', ' + b + ', 1)',
+            lineWidth: 2
+          };
+        }
 
         // smoothieJS - set up canvas element for chart
         scope.seriesArray  = []
@@ -88,12 +118,13 @@ angular.module('archiveDashboard').directive('multiLineChartPlugin', [
                 for (var x = 0; x < numberOfLines; x++) {
 
                   var keyForThisLine = Object.keys(serverResponseData)[x];
+                  var option = getSeriesOption(x);
 
                   scope.seriesArray[x] = new TimeSeries();
-                  chart.addTimeSeries(scope.seriesArray[x], seriesOptions[x]);
+                  chart.addTimeSeries(scope.seriesArray[x], option);
                   scope.metricsArray[x] = {
                     name: keyForThisLine,
-                    color: seriesOptions[x].strokeStyle,
+                    color: option.strokeStyle,
                   }
                 }
 

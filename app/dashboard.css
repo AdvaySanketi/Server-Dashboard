@@ -265,3 +265,6 @@ nav-bar .right-content a:hover{color: var(--accent-secondary)}
 .ld-refresh-btn:active{background: var(--accent-secondary)}
 .plugin-hidden .width-toggle-btn{display:none}
 .plugin-enlarged .width-toggle-btn,.plugin-hidden .minimize-btn{background: var(--bg-tertiary);color: var(--text-secondary)}
+
+.link-btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font-size:14px;transition:all .3s ease}
+.link-btn:hover{background-color:var(--accent-primary);color:#fff}

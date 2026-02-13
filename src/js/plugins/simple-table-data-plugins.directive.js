@@ -17,7 +17,7 @@ var simpleTableModules = [
   },
   {
     name: 'dockerProcesses',
-    template: '<table-data heading="Docker Processes" module-name="docker_processes" info="Processes in Docker Containers sorted by CPU." enlarged="{{ enlarged }}"></table-data>'
+    template: '<table-data heading="Docker Processes" module-name="docker_processes" info="Processes in Docker Containers sorted by CPU."></table-data>'
   },
   {
     name: 'networkConnections',
