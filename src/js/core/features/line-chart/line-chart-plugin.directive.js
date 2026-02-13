@@ -102,6 +102,7 @@ angular.module('archiveDashboard').directive('lineChartPlugin', [
 
               if (serverResponseData.length < 1) {
                 scope.emptyResult = true
+                dataCallInProgress = false
                 return
               }
 
@@ -155,7 +156,7 @@ angular.module('archiveDashboard').directive('lineChartPlugin', [
 
         // only start rendering plugin when we know the scale of max/min for the canvas chart (smoothie)
         var stopWatching = scope.$watch('maxValue', function (n, o) {
-          if (n) {
+          if (typeof n !== 'undefined') {
             start_rendering_line_chart()
             stopWatching()
           }
