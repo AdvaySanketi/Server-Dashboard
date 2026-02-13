@@ -94,7 +94,9 @@ angular.module('archiveDashboard').directive('lineChartPlugin', [
             if(scope.initializing)
               scope.initializing = false
 
-            if (dataCallInProgress || !element.find('canvas')[0]) return
+            // if (dataCallInProgress || !element.find('canvas')[0]) return/
+            if (dataCallInProgress) return
+
 
             dataCallInProgress = true
 
