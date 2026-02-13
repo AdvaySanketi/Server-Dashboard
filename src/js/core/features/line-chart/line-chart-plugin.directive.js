@@ -132,16 +132,20 @@ angular.module('archiveDashboard').directive('lineChartPlugin', [
 
             })
           }
+          
+          // Call getData once after initialization to load initial data
+          var initialDataLoaded = false
+          var waitForCanvas = $interval(function() {
+            if (element.find('canvas')[0] && !initialDataLoaded) {
+              initialDataLoaded = true
+              scope.getData()
+              $interval.cancel(waitForCanvas)
+            }
+          }, 150)
 
           // set the directive-provided interval
           // at which to run the chart update
           var intervalRef = $interval(scope.getData, scope.refreshRate)
-          
-          // Initial data load after a short delay to ensure canvas is ready
-          setTimeout(function() {
-            scope.getData()
-          }, 100)
-          
           var removeInterval = function() {
             $interval.cancel(intervalRef)
           }
