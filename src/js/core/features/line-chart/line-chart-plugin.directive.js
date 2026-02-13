@@ -1,6 +1,6 @@
 angular.module('archiveDashboard').directive('lineChartPlugin', [
-  '$interval', 'server', '$window',
-  function ($interval, server, $window) {
+  '$interval', '$compile', 'server', '$window',
+  function ($interval, $compile, server, $window) {
     return {
       scope: {
         heading: '@',
@@ -16,20 +16,22 @@ angular.module('archiveDashboard').directive('lineChartPlugin', [
       link: function(scope, element) {
 
         scope.initializing = true
-        scope.refreshRate = scope.refreshRate || 2000
 
-        var series = null
-        var chart  = null
-        var canvas = null
-        var intervalRef = null
-        var dataCallInProgress = false
-
-        function startRendering() {
+        // wrap the entire plugin into an initializing function
+        var start_rendering_line_chart = function () {
 
           if (!scope.color)
             scope.color = '0, 255, 0'
 
-          chart = new SmoothieChart({
+          var series, w, h, canvas
+
+          angular.element($window).bind('resize', function() {
+            canvas.width = w
+            canvas.height = h
+          })
+
+          // smoothieJS - Create new chart
+          var chart = new SmoothieChart({
             borderVisible: false,
             sharpLines: true,
             grid: {
@@ -45,97 +47,123 @@ angular.module('archiveDashboard').directive('lineChartPlugin', [
               fillStyle: '#0f0e0e'
             },
             maxValue: parseInt(scope.maxValue),
-            minValue: parseInt(scope.minValue)
+            minValue: parseInt(scope.minValue),
+            horizontalLines: [{
+              value: 5,
+              color: '#eff',
+              lineWidth: 1
+            }]
           })
 
-          // Wait until canvas exists (DOM ready)
-          var checkCanvas = $interval(function() {
-            var foundCanvas = element.find('canvas')[0]
+          var initializeChart = function () {
+            // smoothieJS - set up canvas element for chart
+            var checkForCanvasReadyState = $interval(function () {
+              if (element.find('canvas')[0]) {
+                canvas  = element.find('canvas')[0]
+                series  = series || new TimeSeries()
+                w       = canvas.width
+                h       = canvas.height
 
-            if (foundCanvas) {
+                if (chart.seriesSet.length > 0)
+                  chart.removeTimeSeries(chart.seriesSet[0].timeSeries)
 
-              canvas = foundCanvas
-              series = new TimeSeries()
+                chart.addTimeSeries(series, {
+                  strokeStyle: 'rgba(' + scope.color + ', 1)',
+                  fillStyle: 'rgba(' + scope.color + ', 0.2)',
+                  lineWidth: 2
+                })
 
-              chart.addTimeSeries(series, {
-                strokeStyle: 'rgba(' + scope.color + ', 1)',
-                fillStyle: 'rgba(' + scope.color + ', 0.2)',
-                lineWidth: 2
-              })
+                chart.streamTo(canvas, 1000)
+                $interval.cancel(checkForCanvasReadyState)
+              }
+            }, 100)
+          }
 
-              chart.streamTo(canvas, 1000)
+          scope.reInitializeChart = function () {
+            initializeChart()
+          }
 
-              $interval.cancel(checkCanvas)
+          if (!scope.isHidden)
+            initializeChart()
 
-              // Load first data immediately
-              scope.getData()
+          var dataCallInProgress = false
 
-              // Start polling
-              intervalRef = $interval(scope.getData, scope.refreshRate)
-            }
+          // update data on chart
+          scope.getData = function() {
 
-          }, 100)
-        }
+            if(scope.initializing)
+              scope.initializing = false
 
-        scope.getData = function() {
+            // if (dataCallInProgress || !element.find('canvas')[0]) return/
+            if (dataCallInProgress) return
 
-          if (dataCallInProgress || !series)
-            return
 
-          dataCallInProgress = true
+            dataCallInProgress = true
 
-          server.get(scope.moduleName, function(serverResponseData) {
+            server.get(scope.moduleName, function(serverResponseData) {
 
-            dataCallInProgress = false
+              if (serverResponseData.length < 1) {
+                scope.emptyResult = true
+                dataCallInProgress = false
+                return
+              }
 
-            if (!serverResponseData || serverResponseData.length < 1) {
-              scope.emptyResult = true
-              return
-            }
+              dataCallInProgress = false
+              scope.lastGet      = new Date().getTime()
 
-            scope.lastGet = new Date().getTime()
-            scope.newData = scope.getDisplayValue(serverResponseData)
-
-            // Update chart
-            series.append(scope.lastGet, scope.newData)
-
-            // Dynamic color based on usage
-            if (scope.maxValue) {
-              if (scope.maxValue * 0.75 < scope.newData) {
+              // change graph colour depending on usage
+              if (scope.maxValue / 4 * 3 < scope.getDisplayValue(serverResponseData)) {
                 chart.seriesSet[0].options.strokeStyle = 'rgba(255, 89, 0, 1)'
                 chart.seriesSet[0].options.fillStyle = 'rgba(255, 89, 0, 0.2)'
-              } else if (scope.maxValue * 0.33 < scope.newData) {
+              } else if (scope.maxValue / 3 < scope.getDisplayValue(serverResponseData)) {
                 chart.seriesSet[0].options.strokeStyle = 'rgba(255, 238, 0, 1)'
                 chart.seriesSet[0].options.fillStyle = 'rgba(255, 238, 0, 0.2)'
               } else {
                 chart.seriesSet[0].options.strokeStyle = 'rgba(' + scope.color + ', 1)'
                 chart.seriesSet[0].options.fillStyle = 'rgba(' + scope.color + ', 0.2)'
               }
-            }
 
-            // Update metrics
-            if (scope.metrics && scope.metrics.forEach) {
+              scope.newData = scope.getDisplayValue(serverResponseData)
+
+              // update chart with this response
+              series.append(scope.lastGet, scope.newData)
+
+              // update the metrics for this chart
               scope.metrics.forEach(function(metricObj) {
                 metricObj.data = metricObj.generate(serverResponseData)
               })
-            }
 
-          })
+            })
+          }
+          
+          // Call getData once after initialization to load initial data
+          var initialDataLoaded = false
+          var waitForCanvas = $interval(function() {
+            if (element.find('canvas')[0] && !initialDataLoaded) {
+              initialDataLoaded = true
+              scope.getData()
+              $interval.cancel(waitForCanvas)
+            }
+          }, 150)
+
+          // set the directive-provided interval
+          // at which to run the chart update
+          var intervalRef = $interval(scope.getData, scope.refreshRate)
+          var removeInterval = function() {
+            $interval.cancel(intervalRef)
+          }
+
+          element.on("$destroy", removeInterval)
         }
 
-        // Start only when maxValue is available
-        var stopWatching = scope.$watch('maxValue', function(n) {
+        // only start rendering plugin when we know the scale of max/min for the canvas chart (smoothie)
+        var stopWatching = scope.$watch('maxValue', function (n, o) {
           if (typeof n !== 'undefined') {
+            start_rendering_line_chart()
             stopWatching()
-            startRendering()
           }
         })
 
-        // Cleanup
-        element.on("$destroy", function() {
-          if (intervalRef)
-            $interval.cancel(intervalRef)
-        })
 
       }
     }
