@@ -1,8 +1,28 @@
 angular.module('archiveDashboard').directive('plugin', ['$rootScope', function($rootScope) {
   return {
     transclude: true,
+    scope: {
+      heading: '@',
+      info: '@',
+      lastUpdated: '=',
+      onRefresh: '&',
+      linkUrl: '@',
+      moduleName: '@'
+    },
     templateUrl: 'src/js/core/features/plugin/plugin.html',
     link: function (s, el, attr) {
+
+      // Set up getData function from onRefresh
+      if (s.onRefresh) {
+        s.getData = function() {
+          s.onRefresh();
+        };
+      }
+
+      // Alias lastUpdated to lastGet for template compatibility
+      s.$watch('lastUpdated', function(newVal) {
+        s.lastGet = newVal;
+      });
 
       if (attr.hasOwnProperty('chartPlugin'))
         s.isChartPlugin = true

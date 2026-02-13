@@ -1,4 +1,7 @@
-<plugin chart-plugin>
+<plugin chart-plugin
+  heading="{{ heading }}"
+  last-updated="lastGet"
+  on-refresh="getData()">
 
   <loader ng-if="!maxValue || initializing"></loader>
 
