@@ -25,24 +25,19 @@ minecraft_stats() {
   local status="Not Running"
   local uptime="N/A"
   local memory="N/A"
-  local container_image="N/A"
-  local host_port="25565"
   local max_players="N/A"
   local motd="N/A"
-  local level_name="N/A"
+  local level_name="Shinsenkyo"
   local players="N/A"
+  local total_deaths="N/A"
+  local playtime_hours="N/A"
+  local advancements="N/A"
+  local difficulty="N/A"
 
   if [ -n "$mc_container" ]; then
-    container_image=$(docker inspect -f '{{.Config.Image}}' "$mc_container" 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
     uptime=$(docker inspect -f '{{.State.StartedAt}}' "$mc_container" 2>/dev/null | xargs -I {} date -d {} +%s | xargs -I {} echo $(( $(date +%s) - {} )) | awk '{printf "%dd %dh", $1/86400, ($1%86400)/3600}')
     memory=$(docker stats --no-stream --format "{{.MemUsage}}" "$mc_container" 2>/dev/null | cut -d'/' -f1)
     status="Running (Docker)"
-
-    # Get host port mapping for 25565 if available
-    local port_map=$(docker port "$mc_container" 25565/tcp 2>/dev/null | head -1)
-    if [ -n "$port_map" ]; then
-      host_port=$(echo "$port_map" | sed -E 's/.*:([0-9]+)$/\1/')
-    fi
 
     # Try to read server.properties from common locations inside the container
     local props=""
@@ -51,17 +46,52 @@ minecraft_stats() {
     if [ -n "$props" ]; then
       max_players=$(echo "$props" | grep -E '^max-players=' | head -1 | cut -d'=' -f2- | tr -d '\r' || true)
       motd=$(echo "$props" | grep -E '^motd=' | head -1 | cut -d'=' -f2- | sed 's/\\n/ /g' | tr -d '\r' || true)
-      level_name=$(echo "$props" | grep -E '^level-name=' | head -1 | cut -d'=' -f2- | tr -d '\r' || true)
+      difficulty=$(echo "$props" | grep -E '^difficulty=' | head -1 | cut -d'=' -f2- | tr -d '\r' || true)
       max_players=${max_players:-N/A}
       motd=${motd:-N/A}
-      level_name=${level_name:-N/A}
+      difficulty=${difficulty:-N/A}
+    fi
+
+    # Try to extract player stats (deaths, playtime, advancements)
+    # Look for world directory first (from server.properties or common paths)
+    local world_dir=""
+    if [ -n "$props" ]; then
+      local level_name_prop=$(echo "$props" | grep -E '^level-name=' | head -1 | cut -d'=' -f2- | tr -d '\r' || true)
+      if [ -n "$level_name_prop" ]; then
+        world_dir="/data/$level_name_prop"
+      fi
+    fi
+    
+    # Try common world paths if not found
+    if [ -z "$world_dir" ] || [ "$world_dir" = "/data/" ]; then
+      for wd in /data/world /minecraft/world /server/world /data/Shinsenkyo /minecraft/Shinsenkyo; do
+        local exists=$(docker exec "$mc_container" test -d "$wd" && echo "1" || echo "0" 2>/dev/null)
+        if [ "$exists" = "1" ]; then
+          world_dir="$wd"
+          break
+        fi
+      done
+    fi
+
+    # Count advancements (from advancements/ folder)
+    if [ -n "$world_dir" ]; then
+      local adv_count=$(docker exec "$mc_container" sh -c "find $world_dir/advancements -type f -name '*.json' 2>/dev/null | wc -l" 2>/dev/null || echo "0")
+      advancements="$adv_count"
+      
+      # Try to sum up deaths from all player stat files
+      local deaths_sum=$(docker exec "$mc_container" sh -c "grep -h '\"stat.deaths\"' $world_dir/stats/*.json 2>/dev/null | grep -o '[0-9]*' | awk '{s+=$1} END {print (s?s:0)}'" 2>/dev/null || echo "0")
+      total_deaths="$deaths_sum"
+      
+      # Try to get average playtime (total ticks / 20 / 3600 = hours)
+      local playtime_ticks=$(docker exec "$mc_container" sh -c "grep -h '\"stat.play_time\"' $world_dir/stats/*.json 2>/dev/null | grep -o '[0-9]*' | awk '{s+=$1} END {print (s?s:0)}'" 2>/dev/null || echo "0")
+      if [ "$playtime_ticks" -gt 0 ]; then
+        playtime_hours=$(echo "$playtime_ticks" | awk '{printf "%.1f", $1/20/3600}')
+      fi
     fi
 
     # If mcstatus CLI is available on host, try querying for current players
     if command -v mcstatus >/dev/null 2>&1; then
-      # prefer querying host port if mapped, else default 127.0.0.1:25565
-      local query_target="127.0.0.1:$host_port"
-      local mc_out=$(mcstatus "$query_target" status 2>/dev/null || true)
+      local mc_out=$(mcstatus "127.0.0.1:25565" status 2>/dev/null || true)
       if [ -n "$mc_out" ]; then
         players=$(echo "$mc_out" | grep -oE 'players: [0-9]+' | head -1 | awk '{print $2}' || true)
         players=${players:-N/A}
@@ -72,7 +102,6 @@ minecraft_stats() {
     if command -v nc >/dev/null 2>&1; then
       if nc -z -w 1 127.0.0.1 25565 >/dev/null 2>&1; then
         status="Listening on 25565"
-        host_port=25565
       else
         status="Not Running"
       fi
@@ -85,15 +114,17 @@ minecraft_stats() {
   status=$(echo "$status" | tr -d '\n\r\t')
   uptime=$(echo "$uptime" | tr -d '\n\r\t')
   memory=$(echo "$memory" | tr -d '\n\r\t')
-  container_image=$(echo "$container_image" | tr -d '\n\r\t')
-  host_port=$(echo "$host_port" | tr -d '\n\r\t')
   max_players=$(echo "$max_players" | tr -d '\n\r\t')
   motd=$(echo "$motd" | tr -d '\n\r\t')
   level_name=$(echo "$level_name" | tr -d '\n\r\t')
   players=$(echo "$players" | tr -d '\n\r\t')
+  total_deaths=$(echo "$total_deaths" | tr -d '\n\r\t')
+  playtime_hours=$(echo "$playtime_hours" | tr -d '\n\r\t')
+  advancements=$(echo "$advancements" | tr -d '\n\r\t')
+  difficulty=$(echo "$difficulty" | tr -d '\n\r\t')
 
-  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"},{"Metric":"Container Image","Value":"%s"},{"Metric":"Host Port","Value":"%s"},{"Metric":"Max Players","Value":"%s"},{"Metric":"Players Online","Value":"%s"},{"Metric":"World","Value":"%s"},{"Metric":"MOTD","Value":"%s"}]' \
-    "$status" "$uptime" "$memory" "$container_image" "$host_port" "$max_players" "$players" "$level_name" "$motd"
+  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"},{"Metric":"Players Online","Value":"%s"},{"Metric":"Max Players","Value":"%s"},{"Metric":"Total Deaths","Value":"%s"},{"Metric":"Playtime (hours)","Value":"%s"},{"Metric":"Advancements","Value":"%s"},{"Metric":"Difficulty","Value":"%s"},{"Metric":"World","Value":"%s"},{"Metric":"MOTD","Value":"%s"}]' \
+    "$status" "$uptime" "$memory" "$players" "$max_players" "$total_deaths" "$playtime_hours" "$advancements" "$difficulty" "$level_name" "$motd"
 }
 
 _parseAndPrint() {
