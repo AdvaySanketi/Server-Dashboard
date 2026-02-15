@@ -17,7 +17,7 @@ _jsonEscape() {
 minecraft_stats() {
   exec 2>/dev/null
   # Detect Minecraft container (try common name patterns), fall back to port check on localhost:25565
-  local mc_container=$(docker ps --filter "name=minecraft" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
+  local mc_container=$(docker ps --filter "name=minecraft-minecraft-1" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
   if [ -z "$mc_container" ]; then
     mc_container=$(docker ps --filter "name=minecraft-minecraft-1" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
   fi
