@@ -16,11 +16,8 @@ _jsonEscape() {
 
 minecraft_stats() {
   exec 2>/dev/null
-  # Detect Minecraft container (try common name patterns), fall back to port check on localhost:25565
+  # Detect Minecraft container
   local mc_container=$(docker ps --filter "name=minecraft-minecraft-1" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
-  if [ -z "$mc_container" ]; then
-    mc_container=$(docker ps --filter "name=minecraft-minecraft-1" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
-  fi
 
   local status="Not Running"
   local uptime="N/A"
@@ -39,7 +36,7 @@ minecraft_stats() {
     memory=$(docker stats --no-stream --format "{{.MemUsage}}" "$mc_container" 2>/dev/null | cut -d'/' -f1)
     status="Running (Docker)"
 
-    # Try to read server.properties from common locations inside the container
+    # Read server.properties
     local props=""
     props=$(docker exec "$mc_container" sh -c 'for p in /data/server.properties /minecraft/server.properties /server/server.properties /config/server.properties /opt/minecraft/server.properties /srv/minecraft/server.properties /root/.minecraft/server.properties; do if [ -f "$p" ]; then cat "$p" && exit 0; fi; done' 2>/dev/null || true)
 
@@ -52,37 +49,22 @@ minecraft_stats() {
       difficulty=${difficulty:-N/A}
     fi
 
-    # Find world directory - use Shinsenkyo by default, fall back to level-name from props
-    local world_dir="/data/Shinsenkyo"
-    if [ -n "$props" ]; then
-      local level_name_prop=$(echo "$props" | grep -E '^level-name=' | head -1 | cut -d'=' -f2- | tr -d '\r' || true)
-      if [ -n "$level_name_prop" ] && [ "$level_name_prop" != "world" ]; then
-        world_dir="/data/$level_name_prop"
-      fi
-    fi
-
-    # Verify world directory exists
-    local world_exists=$(docker exec "$mc_container" test -d "$world_dir" && echo "1" || echo "0" 2>/dev/null)
-    if [ "$world_exists" != "1" ]; then
-      world_dir="/data/world"
-    fi
-
-    # Count total deaths across all player stats
-    local deaths_cmd="find $world_dir/stats -name '*.json' -type f 2>/dev/null | while read f; do grep -o '\"stat\.deaths\":[0-9]*' \"\$f\" 2>/dev/null | grep -o '[0-9]*'; done | awk '{s+=\$1} END {print (s?s:0)}'"
+    # Extract deaths: sum of "minecraft:deaths" values from all player stats
+    local deaths_cmd='grep -h "minecraft:deaths" /data/world/stats/*.json 2>/dev/null | grep -o "[0-9]*$" | awk "{s+=\$1} END {print (s?s:0)}"'
     total_deaths=$(docker exec "$mc_container" sh -c "$deaths_cmd" 2>/dev/null || echo "0")
     total_deaths=${total_deaths:-0}
 
-    # Sum total playtime ticks (convert to hours: ticks / 20 / 3600)
-    local playtime_cmd="find $world_dir/stats -name '*.json' -type f 2>/dev/null | while read f; do grep -o '\"stat\.play_time\":[0-9]*' \"\$f\" 2>/dev/null | grep -o '[0-9]*'; done | awk '{s+=\$1} END {if(s>0) printf \"%.1f\", s/20/3600; else print \"0.0\"}'"
+    # Extract playtime: sum of "minecraft:play_time" and convert ticks to hours
+    local playtime_cmd='grep -h "minecraft:play_time" /data/world/stats/*.json 2>/dev/null | grep -o "[0-9]*$" | awk "{s+=\$1} END {if(s>0) printf \"%.1f\", s/20/3600; else print \"0.0\"}"'
     playtime_hours=$(docker exec "$mc_container" sh -c "$playtime_cmd" 2>/dev/null || echo "0.0")
     playtime_hours=${playtime_hours:-0.0}
 
-    # Count advancements (keys with "done":true in advancement files)
-    local adv_cmd="find $world_dir/advancements -name '*.json' -type f 2>/dev/null | while read f; do grep -o '\"done\":true' \"\$f\" 2>/dev/null; done | wc -l"
+    # Count advancements with "done":true across all players
+    local adv_cmd='grep -oh "\"done\":true" /data/world/advancements/*.json 2>/dev/null | wc -l'
     advancements=$(docker exec "$mc_container" sh -c "$adv_cmd" 2>/dev/null || echo "0")
     advancements=${advancements:-0}
 
-    # Try mcstatus for current players (if available)
+    # Try mcstatus for current players
     if command -v mcstatus >/dev/null 2>&1; then
       local mc_out=$(mcstatus "127.0.0.1:25565" status 2>/dev/null || true)
       if [ -n "$mc_out" ]; then
@@ -91,7 +73,7 @@ minecraft_stats() {
       fi
     fi
   else
-    # No container; check if port is listening on localhost
+    # No container; check if port is listening
     if command -v nc >/dev/null 2>&1; then
       if nc -z -w 1 127.0.0.1 25565 >/dev/null 2>&1; then
         status="Listening on 25565"
@@ -103,7 +85,7 @@ minecraft_stats() {
     fi
   fi
 
-  # sanitize
+  # Sanitize
   status=$(echo "$status" | tr -d '\n\r\t')
   uptime=$(echo "$uptime" | tr -d '\n\r\t')
   memory=$(echo "$memory" | tr -d '\n\r\t')
