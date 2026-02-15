@@ -50,28 +50,42 @@ minecraft_stats() {
     fi
 
     # Extract deaths: sum of "minecraft:deaths" values from all player stats
-    local deaths_cmd='grep -h "minecraft:deaths" /data/world/stats/*.json 2>/dev/null | grep -o "[0-9]*$" | awk "{s+=\$1} END {print (s?s:0)}"'
+    local deaths_cmd='find /data/world/stats -name "*.json" -exec cat {} \; 2>/dev/null | grep -o "\"minecraft:deaths\":[[:space:]]*[0-9]\+" | grep -o "[0-9]\+" | awk "{s+=\$1} END {print (s?s:0)}"'
     total_deaths=$(docker exec "$mc_container" sh -c "$deaths_cmd" 2>/dev/null || echo "0")
     total_deaths=${total_deaths:-0}
 
     # Extract playtime: sum of "minecraft:play_time" and convert ticks to hours
-    local playtime_cmd='grep -h "minecraft:play_time" /data/world/stats/*.json 2>/dev/null | grep -o "[0-9]*$" | awk "{s+=\$1} END {if(s>0) printf \"%.1f\", s/20/3600; else print \"0.0\"}"'
+    local playtime_cmd='find /data/world/stats -name "*.json" -exec cat {} \; 2>/dev/null | grep -o "\"minecraft:play_time\":[[:space:]]*[0-9]\+" | grep -o "[0-9]\+" | awk "{s+=\$1} END {if(s>0) printf \"%.1f\", s/20/3600; else print \"0.0\"}"'
     playtime_hours=$(docker exec "$mc_container" sh -c "$playtime_cmd" 2>/dev/null || echo "0.0")
     playtime_hours=${playtime_hours:-0.0}
 
-    # Count advancements with "done":true across all players
-    local adv_cmd='grep -oh "\"done\":true" /data/world/advancements/*.json 2>/dev/null | wc -l'
+    # Count total advancements earned across all players
+    local adv_cmd='find /data/world/advancements -name "*.json" -exec grep -oh "\"done\":true" {} \; 2>/dev/null | wc -l'
     advancements=$(docker exec "$mc_container" sh -c "$adv_cmd" 2>/dev/null || echo "0")
     advancements=${advancements:-0}
 
-    # Try mcstatus for current players
-    if command -v mcstatus >/dev/null 2>&1; then
-      local mc_out=$(mcstatus "127.0.0.1:25565" status 2>/dev/null || true)
-      if [ -n "$mc_out" ]; then
-        players=$(echo "$mc_out" | grep -oE '[0-9]+/[0-9]+' | head -1 | cut -d'/' -f1 || true)
-        players=${players:-N/A}
+    # Get current player count by checking recent join/leave messages
+    local players_cmd='tail -500 /data/logs/latest.log 2>/dev/null | tac | awk '\''
+      /left the game/ { left[$4]=1 }
+      /joined the game/ { 
+        if (!($4 in left)) { 
+          online[$4]=1 
+        }
+      }
+      END { print length(online) }
+    '\'''
+    players=$(docker exec "$mc_container" sh -c "$players_cmd" 2>/dev/null || echo "N/A")
+    
+    # Fallback to mcstatus if available
+    if [ "$players" = "0" ] || [ "$players" = "N/A" ]; then
+      if command -v mcstatus >/dev/null 2>&1; then
+        local mc_out=$(mcstatus "127.0.0.1:25565" status 2>/dev/null || true)
+        if [ -n "$mc_out" ]; then
+          players=$(echo "$mc_out" | grep -oE '[0-9]+/[0-9]+' | head -1 | cut -d'/' -f1 || true)
+        fi
       fi
     fi
+    players=${players:-N/A}
   else
     # No container; check if port is listening
     if command -v nc >/dev/null 2>&1; then
