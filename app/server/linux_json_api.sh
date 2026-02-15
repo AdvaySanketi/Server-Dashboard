@@ -29,9 +29,9 @@ minecraft_stats() {
   local motd="N/A"
   local level_name="Shinsenkyo"
   local players="N/A"
-  local total_deaths="N/A"
-  local playtime_hours="N/A"
-  local advancements="N/A"
+  local total_deaths="0"
+  local playtime_hours="0.0"
+  local advancements="0"
   local difficulty="N/A"
 
   if [ -n "$mc_container" ]; then
@@ -52,48 +52,41 @@ minecraft_stats() {
       difficulty=${difficulty:-N/A}
     fi
 
-    # Try to extract player stats (deaths, playtime, advancements)
-    # Look for world directory first (from server.properties or common paths)
-    local world_dir=""
+    # Find world directory - use Shinsenkyo by default, fall back to level-name from props
+    local world_dir="/data/Shinsenkyo"
     if [ -n "$props" ]; then
       local level_name_prop=$(echo "$props" | grep -E '^level-name=' | head -1 | cut -d'=' -f2- | tr -d '\r' || true)
-      if [ -n "$level_name_prop" ]; then
+      if [ -n "$level_name_prop" ] && [ "$level_name_prop" != "world" ]; then
         world_dir="/data/$level_name_prop"
       fi
     fi
-    
-    # Try common world paths if not found
-    if [ -z "$world_dir" ] || [ "$world_dir" = "/data/" ]; then
-      for wd in /data/world /minecraft/world /server/world /data/Shinsenkyo /minecraft/Shinsenkyo; do
-        local exists=$(docker exec "$mc_container" test -d "$wd" && echo "1" || echo "0" 2>/dev/null)
-        if [ "$exists" = "1" ]; then
-          world_dir="$wd"
-          break
-        fi
-      done
+
+    # Verify world directory exists
+    local world_exists=$(docker exec "$mc_container" test -d "$world_dir" && echo "1" || echo "0" 2>/dev/null)
+    if [ "$world_exists" != "1" ]; then
+      world_dir="/data/world"
     fi
 
-    # Count advancements (from advancements/ folder)
-    if [ -n "$world_dir" ]; then
-      local adv_count=$(docker exec "$mc_container" sh -c "find $world_dir/advancements -type f -name '*.json' 2>/dev/null | wc -l" 2>/dev/null || echo "0")
-      advancements="$adv_count"
-      
-      # Try to sum up deaths from all player stat files
-      local deaths_sum=$(docker exec "$mc_container" sh -c "grep -h '\"stat.deaths\"' $world_dir/stats/*.json 2>/dev/null | grep -o '[0-9]*' | awk '{s+=$1} END {print (s?s:0)}'" 2>/dev/null || echo "0")
-      total_deaths="$deaths_sum"
-      
-      # Try to get average playtime (total ticks / 20 / 3600 = hours)
-      local playtime_ticks=$(docker exec "$mc_container" sh -c "grep -h '\"stat.play_time\"' $world_dir/stats/*.json 2>/dev/null | grep -o '[0-9]*' | awk '{s+=$1} END {print (s?s:0)}'" 2>/dev/null || echo "0")
-      if [ "$playtime_ticks" -gt 0 ]; then
-        playtime_hours=$(echo "$playtime_ticks" | awk '{printf "%.1f", $1/20/3600}')
-      fi
-    fi
+    # Count total deaths across all player stats
+    local deaths_cmd="find $world_dir/stats -name '*.json' -type f 2>/dev/null | while read f; do grep -o '\"stat\.deaths\":[0-9]*' \"\$f\" 2>/dev/null | grep -o '[0-9]*'; done | awk '{s+=\$1} END {print (s?s:0)}'"
+    total_deaths=$(docker exec "$mc_container" sh -c "$deaths_cmd" 2>/dev/null || echo "0")
+    total_deaths=${total_deaths:-0}
 
-    # If mcstatus CLI is available on host, try querying for current players
+    # Sum total playtime ticks (convert to hours: ticks / 20 / 3600)
+    local playtime_cmd="find $world_dir/stats -name '*.json' -type f 2>/dev/null | while read f; do grep -o '\"stat\.play_time\":[0-9]*' \"\$f\" 2>/dev/null | grep -o '[0-9]*'; done | awk '{s+=\$1} END {if(s>0) printf \"%.1f\", s/20/3600; else print \"0.0\"}'"
+    playtime_hours=$(docker exec "$mc_container" sh -c "$playtime_cmd" 2>/dev/null || echo "0.0")
+    playtime_hours=${playtime_hours:-0.0}
+
+    # Count advancements (keys with "done":true in advancement files)
+    local adv_cmd="find $world_dir/advancements -name '*.json' -type f 2>/dev/null | while read f; do grep -o '\"done\":true' \"\$f\" 2>/dev/null; done | wc -l"
+    advancements=$(docker exec "$mc_container" sh -c "$adv_cmd" 2>/dev/null || echo "0")
+    advancements=${advancements:-0}
+
+    # Try mcstatus for current players (if available)
     if command -v mcstatus >/dev/null 2>&1; then
       local mc_out=$(mcstatus "127.0.0.1:25565" status 2>/dev/null || true)
       if [ -n "$mc_out" ]; then
-        players=$(echo "$mc_out" | grep -oE 'players: [0-9]+' | head -1 | awk '{print $2}' || true)
+        players=$(echo "$mc_out" | grep -oE '[0-9]+/[0-9]+' | head -1 | cut -d'/' -f1 || true)
         players=${players:-N/A}
       fi
     fi
