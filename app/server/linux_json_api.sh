@@ -14,6 +14,88 @@ _jsonEscape() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\n/\\n/g; s/\r/\\r/g; s/\t/\\t/g' | tr -d '\n\r'
 }
 
+minecraft_stats() {
+  exec 2>/dev/null
+  # Detect Minecraft container (try common name patterns), fall back to port check on localhost:25565
+  local mc_container=$(docker ps --filter "name=minecraft" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
+  if [ -z "$mc_container" ]; then
+    mc_container=$(docker ps --filter "name=minecraft-minecraft-1" --filter "status=running" --format "{{.Names}}" 2>/dev/null | head -1)
+  fi
+
+  local status="Not Running"
+  local uptime="N/A"
+  local memory="N/A"
+  local container_image="N/A"
+  local host_port="25565"
+  local max_players="N/A"
+  local motd="N/A"
+  local level_name="N/A"
+  local players="N/A"
+
+  if [ -n "$mc_container" ]; then
+    container_image=$(docker inspect -f '{{.Config.Image}}' "$mc_container" 2>/dev/null | tr -d '\n\r\t' || echo "N/A")
+    uptime=$(docker inspect -f '{{.State.StartedAt}}' "$mc_container" 2>/dev/null | xargs -I {} date -d {} +%s | xargs -I {} echo $(( $(date +%s) - {} )) | awk '{printf "%dd %dh", $1/86400, ($1%86400)/3600}')
+    memory=$(docker stats --no-stream --format "{{.MemUsage}}" "$mc_container" 2>/dev/null | cut -d'/' -f1)
+    status="Running (Docker)"
+
+    # Get host port mapping for 25565 if available
+    local port_map=$(docker port "$mc_container" 25565/tcp 2>/dev/null | head -1)
+    if [ -n "$port_map" ]; then
+      host_port=$(echo "$port_map" | sed -E 's/.*:([0-9]+)$/\1/')
+    fi
+
+    # Try to read server.properties from common locations inside the container
+    local props=""
+    props=$(docker exec "$mc_container" sh -c 'for p in /data/server.properties /minecraft/server.properties /server/server.properties /config/server.properties /opt/minecraft/server.properties /srv/minecraft/server.properties /root/.minecraft/server.properties; do if [ -f "$p" ]; then cat "$p" && exit 0; fi; done' 2>/dev/null || true)
+
+    if [ -n "$props" ]; then
+      max_players=$(echo "$props" | grep -E '^max-players=' | head -1 | cut -d'=' -f2- | tr -d '\r' || true)
+      motd=$(echo "$props" | grep -E '^motd=' | head -1 | cut -d'=' -f2- | sed 's/\\n/ /g' | tr -d '\r' || true)
+      level_name=$(echo "$props" | grep -E '^level-name=' | head -1 | cut -d'=' -f2- | tr -d '\r' || true)
+      max_players=${max_players:-N/A}
+      motd=${motd:-N/A}
+      level_name=${level_name:-N/A}
+    fi
+
+    # If mcstatus CLI is available on host, try querying for current players
+    if command -v mcstatus >/dev/null 2>&1; then
+      # prefer querying host port if mapped, else default 127.0.0.1:25565
+      local query_target="127.0.0.1:$host_port"
+      local mc_out=$(mcstatus "$query_target" status 2>/dev/null || true)
+      if [ -n "$mc_out" ]; then
+        players=$(echo "$mc_out" | grep -oE 'players: [0-9]+' | head -1 | awk '{print $2}' || true)
+        players=${players:-N/A}
+      fi
+    fi
+  else
+    # No container; check if port is listening on localhost
+    if command -v nc >/dev/null 2>&1; then
+      if nc -z -w 1 127.0.0.1 25565 >/dev/null 2>&1; then
+        status="Listening on 25565"
+        host_port=25565
+      else
+        status="Not Running"
+      fi
+    else
+      status="Unknown (no nc)"
+    fi
+  fi
+
+  # sanitize
+  status=$(echo "$status" | tr -d '\n\r\t')
+  uptime=$(echo "$uptime" | tr -d '\n\r\t')
+  memory=$(echo "$memory" | tr -d '\n\r\t')
+  container_image=$(echo "$container_image" | tr -d '\n\r\t')
+  host_port=$(echo "$host_port" | tr -d '\n\r\t')
+  max_players=$(echo "$max_players" | tr -d '\n\r\t')
+  motd=$(echo "$motd" | tr -d '\n\r\t')
+  level_name=$(echo "$level_name" | tr -d '\n\r\t')
+  players=$(echo "$players" | tr -d '\n\r\t')
+
+  printf '[{"Metric":"Status","Value":"%s"},{"Metric":"Uptime","Value":"%s"},{"Metric":"Memory Usage","Value":"%s"},{"Metric":"Container Image","Value":"%s"},{"Metric":"Host Port","Value":"%s"},{"Metric":"Max Players","Value":"%s"},{"Metric":"Players Online","Value":"%s"},{"Metric":"World","Value":"%s"},{"Metric":"MOTD","Value":"%s"}]' \
+    "$status" "$uptime" "$memory" "$container_image" "$host_port" "$max_players" "$players" "$level_name" "$motd"
+}
+
 _parseAndPrint() {
   while read data; do
     $ECHO -n "$data" | $SED -r 's/\\//g' | $TR -d "\n";

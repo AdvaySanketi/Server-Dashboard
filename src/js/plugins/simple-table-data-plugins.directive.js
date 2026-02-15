@@ -108,6 +108,10 @@ var simpleTableModules = [
     template: '<table-data heading="Lidarr Stats" module-name="lidarr_stats" info="Lidarr music management statistics." link-url="http://the-archive:8686"></table-data>'
   },
   {
+    name: 'minecraftStats',
+    template: '<table-data heading="Minecraft Server" module-name="minecraft_stats" info="Minecraft server status (Docker or port 25565)." link-url="http://the-archive:25565"></table-data>'
+  },
+  {
     name: 'navidromeStats',
     template: '<table-data heading="Navidrome Stats" module-name="navidrome_stats" info="Navidrome music server statistics." link-url="http://the-archive:4533"></table-data>'
   },

@@ -80,6 +80,7 @@ function routesFn($routeProvider) {
         '<pihole-stats sortablejs-id="pihole"></pihole-stats> ',
         '<tailscale-stats sortablejs-id="tailscale"></tailscale-stats> ',
         '<caddy-stats sortablejs-id="caddy"></caddy-stats> ',
+        '<minecraft-stats sortablejs-id="minecraft"></minecraft-stats> ',
         '<lidarr-stats sortablejs-id="lidarr"></lidarr-stats> ',
         '<navidrome-stats sortablejs-id="navidrome"></navidrome-stats> ',
         '<beets-stats sortablejs-id="beets"></beets-stats> ',
